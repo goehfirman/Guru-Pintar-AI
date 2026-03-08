@@ -197,17 +197,23 @@ const AlurTujuanPembelajaran: React.FC = () => {
             },
           },
           {
-            text: `Ekstrak data Alur Tujuan Pembelajaran (ATP) dari dokumen PDF ini untuk mata pelajaran ${subject.name}. 
+            text: `Analisis dokumen PDF ini untuk mengekstrak Alur Tujuan Pembelajaran (ATP) mata pelajaran ${subject.name}.
+            
+            INSTRUKSI PENTING:
+            1. Data TIDAK SELALU dalam format tabel. Cari daftar atau paragraf yang berisi Tujuan Pembelajaran.
+            2. Anda diberikan kebebasan untuk menyeleksi data yang relevan sebagai ATP.
+            3. CRITICAL: Redaksi kalimat "rumusanTp" (Tujuan Pembelajaran) HARUS PERSIS SAMA dengan dokumen asli. JANGAN melakukan parafrase atau mengubah kata-kata.
+            4. Jika ada kolom yang tidak tersedia (seperti kodeTp atau JP), kosongkan atau isi dengan "-" yang masuk akal.
+            
             Petakan ke dalam format JSON Array murni tanpa markdown block.
             Setiap objek harus memiliki properti:
-            - kodeTp (string, contoh: "1.1")
-            - unitTopik (string, materi pokok)
-            - jejakTurunanCp (string, alur tujuan pembelajaran / capaian pembelajaran)
-            - rumusanTp (string, tujuan pembelajaran)
-            - asesmen (string, jenis asesmen)
-            - jp (string, alokasi waktu angka saja)
-            
-            PENTING: Jangan mengubah data, cukup petakan saja sesuai dengan tabel yang ada di dokumen.`,
+            - kodeTp (string, contoh: "1.1" atau kosong jika tidak ada)
+            - unitTopik (string, materi pokok/bab)
+            - jejakTurunanCp (string, Capaian Pembelajaran terkait)
+            - rumusanTp (string, Tujuan Pembelajaran - JANGAN DIUBAH REDAKSINYA)
+            - asesmen (string, jenis asesmen jika ada)
+            - jp (string, alokasi waktu angka saja jika ada)
+            `,
           },
         ];
       } else if (importFile.name.endsWith('.xls') || importFile.name.endsWith('.xlsx')) {
@@ -225,17 +231,22 @@ const AlurTujuanPembelajaran: React.FC = () => {
 
         promptContent = [
           {
-            text: `Berikut adalah data Alur Tujuan Pembelajaran (ATP) dalam format CSV untuk mata pelajaran ${subject.name}:\n\n${csvData}\n\n
-            Ekstrak data ATP dari teks tersebut. Petakan ke dalam format JSON Array murni tanpa markdown block.
+            text: `Berikut adalah data mentah Alur Tujuan Pembelajaran (ATP) untuk mata pelajaran ${subject.name}:\n\n${csvData}\n\n
+            INSTRUKSI PENTING:
+            1. Data mungkin tidak terstruktur rapi. Cari baris yang mengandung Tujuan Pembelajaran.
+            2. Seleksi data yang relevan sebagai ATP.
+            3. CRITICAL: Redaksi kalimat "rumusanTp" (Tujuan Pembelajaran) HARUS PERSIS SAMA dengan sumber data. JANGAN diubah/diparafrase.
+            4. Abaikan baris header atau footer yang tidak relevan.
+            
+            Petakan ke dalam format JSON Array murni tanpa markdown block.
             Setiap objek harus memiliki properti:
-            - kodeTp (string, contoh: "1.1")
+            - kodeTp (string, contoh: "1.1" atau kosong)
             - unitTopik (string, materi pokok)
-            - jejakTurunanCp (string, alur tujuan pembelajaran / capaian pembelajaran)
-            - rumusanTp (string, tujuan pembelajaran)
+            - jejakTurunanCp (string, Capaian Pembelajaran)
+            - rumusanTp (string, Tujuan Pembelajaran - JANGAN DIUBAH REDAKSINYA)
             - asesmen (string, jenis asesmen)
             - jp (string, alokasi waktu angka saja)
-            
-            PENTING: Jangan mengubah data, cukup petakan saja sesuai dengan tabel yang ada.`,
+            `,
           },
         ];
       } else {
