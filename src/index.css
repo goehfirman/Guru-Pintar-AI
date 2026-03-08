@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1e3fae;
+  --color-background-light: #f6f6f8;
+  --color-background-dark: #121520;
+  --color-sidebar-light: #ffffff;
+  --color-sidebar-dark: #1e2235;
+  --color-text-light: #334155;
+  --color-text-dark: #cbd5e1;
+  --color-border-light: #e2e8f0;
+  --color-border-dark: #334155;
+  
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+@layer base {
+  body {
+    @apply bg-background-light text-text-light font-sans antialiased;
+  }
+  
+  .dark body {
+    @apply bg-background-dark text-text-dark;
+  }
+}
