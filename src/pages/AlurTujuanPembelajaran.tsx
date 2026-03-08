@@ -35,7 +35,9 @@ const initialSubjects: SubjectItem[] = [
 
 const AlurTujuanPembelajaran: React.FC = () => {
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(() => {
+    return localStorage.getItem('atp_selected_subject_id') || '';
+  });
   const [atpData, setAtpData] = useState<ATPItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -67,13 +69,21 @@ const AlurTujuanPembelajaran: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (subjects.length > 0 && !selectedSubjectId) {
-      setSelectedSubjectId(subjects[0].id);
+    if (subjects.length > 0) {
+      if (!selectedSubjectId) {
+        setSelectedSubjectId(subjects[0].id);
+      } else {
+        const exists = subjects.some(s => s.id === selectedSubjectId);
+        if (!exists) {
+          setSelectedSubjectId(subjects[0].id);
+        }
+      }
     }
   }, [subjects, selectedSubjectId]);
 
   useEffect(() => {
     if (selectedSubjectId) {
+      localStorage.setItem('atp_selected_subject_id', selectedSubjectId);
       loadAtpData(selectedSubjectId);
       setSelectedItems(new Set()); // Reset selection when subject changes
     }

@@ -34,9 +34,16 @@ const months = [
 ];
 
 const KalenderAkademik: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'kalender' | 'minggu' | 'hari'>('kalender');
   const [academicYear, setAcademicYear] = useState('2023/2024');
   const [currentMonth, setCurrentMonth] = useState('');
   const [events, setEvents] = useState(initialEvents);
+  
+  // Minggu Efektif State
+  const [effectiveWeeks, setEffectiveWeeks] = useState<Record<string, number>>({});
+  
+  // Hari Efektif State
+  const [schoolDays, setSchoolDays] = useState<string[]>(['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat']);
   
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isAddEventModalOpen, setIsAddEventModalOpen] = useState(false);
@@ -47,8 +54,8 @@ const KalenderAkademik: React.FC = () => {
   const [showSaveNotification, setShowSaveNotification] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load academic year on mount
-  React.useEffect(() => {
+  // Load settings on mount
+  useEffect(() => {
     const loadSettings = () => {
       const settings = localStorage.getItem('guru_academic_settings');
       if (settings) {
@@ -57,14 +64,13 @@ const KalenderAkademik: React.FC = () => {
           if (parsed.activeYear) {
             setAcademicYear(parsed.activeYear);
             
-            // Set initial month to current month if within academic year, otherwise first month of academic year
+            // Set initial month logic...
             const now = new Date();
             const currentYear = now.getFullYear();
             const currentMonthIndex = now.getMonth(); // 0-11
             
             const [startYear, endYear] = parsed.activeYear.split('/').map(Number);
             
-            // Academic year is July (6) of startYear to June (5) of endYear
             const isCurrentInAcademic = (currentYear === startYear && currentMonthIndex >= 6) || 
                                       (currentYear === endYear && currentMonthIndex <= 5);
             
@@ -79,8 +85,23 @@ const KalenderAkademik: React.FC = () => {
           console.error("Failed to parse academic settings", e);
         }
       } else {
-        // Default if no settings
         setCurrentMonth('Juli 2023');
+      }
+
+      // Load effective weeks
+      const savedWeeks = localStorage.getItem(getStorageKey('effective_weeks'));
+      if (savedWeeks) {
+        try {
+          setEffectiveWeeks(JSON.parse(savedWeeks));
+        } catch (e) {}
+      }
+
+      // Load school days
+      const savedDays = localStorage.getItem(getStorageKey('school_days'));
+      if (savedDays) {
+        try {
+          setSchoolDays(JSON.parse(savedDays));
+        } catch (e) {}
       }
     };
     
@@ -88,6 +109,19 @@ const KalenderAkademik: React.FC = () => {
     window.addEventListener('academicSettingsUpdated', loadSettings);
     return () => window.removeEventListener('academicSettingsUpdated', loadSettings);
   }, []);
+
+  // Save handlers
+  const saveEffectiveWeeks = () => {
+    localStorage.setItem(getStorageKey('effective_weeks'), JSON.stringify(effectiveWeeks));
+    setShowSaveNotification(true);
+    setTimeout(() => setShowSaveNotification(false), 3000);
+  };
+
+  const saveSchoolDays = () => {
+    localStorage.setItem(getStorageKey('school_days'), JSON.stringify(schoolDays));
+    setShowSaveNotification(true);
+    setTimeout(() => setShowSaveNotification(false), 3000);
+  };
 
   // Load events when academic year changes or on mount
   useEffect(() => {
@@ -369,47 +403,82 @@ const KalenderAkademik: React.FC = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Kalender Akademik</h1>
-          <p className="text-gray-500 dark:text-gray-400">Jadwal kegiatan sekolah dan hari libur</p>
+          <p className="text-gray-500 dark:text-gray-400">Pengaturan jadwal dan waktu efektif belajar</p>
         </div>
-        <div className="flex items-center gap-3">
-          <select
-            value={currentMonth}
-            onChange={(e) => setCurrentMonth(e.target.value)}
-            className="py-2 pl-3 pr-8 text-sm border border-gray-200 rounded-lg bg-white focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none dark:bg-sidebar-dark dark:border-border-dark dark:text-white dark:focus:bg-gray-900 transition-colors"
+        <div className="flex p-1 bg-gray-100 rounded-xl dark:bg-gray-800">
+          <button
+            onClick={() => setActiveTab('kalender')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              activeTab === 'kalender'
+                ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
+                : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+            }`}
           >
-            {months.map((month) => (
-              <option key={month} value={month}>{month}</option>
-            ))}
-          </select>
-          <button 
-            onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors bg-indigo-600 rounded-lg hover:bg-indigo-700"
-          >
-            <span className="material-symbols-outlined">save</span>
-            Simpan
+            Kalender
           </button>
-          <button 
-            onClick={() => setIsAddEventModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700"
+          <button
+            onClick={() => setActiveTab('minggu')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              activeTab === 'minggu'
+                ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
+                : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+            }`}
           >
-            <span className="material-symbols-outlined">add</span>
-            Tambah Kegiatan
+            Minggu Efektif
           </button>
-          <button 
-            onClick={() => setIsImportModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors bg-green-600 rounded-lg hover:bg-green-700"
+          <button
+            onClick={() => setActiveTab('hari')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              activeTab === 'hari'
+                ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
+                : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+            }`}
           >
-            <span className="material-symbols-outlined">upload_file</span>
-            Import Pintar
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-200 rounded-lg dark:bg-sidebar-dark dark:border-border-dark dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
-            <span className="material-symbols-outlined">download</span>
-            Unduh PDF
+            Hari Efektif
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {activeTab === 'kalender' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-end gap-3">
+            <select
+              value={currentMonth}
+              onChange={(e) => setCurrentMonth(e.target.value)}
+              className="py-2 pl-3 pr-8 text-sm border border-gray-200 rounded-lg bg-white focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none dark:bg-sidebar-dark dark:border-border-dark dark:text-white dark:focus:bg-gray-900 transition-colors"
+            >
+              {months.map((month) => (
+                <option key={month} value={month}>{month}</option>
+              ))}
+            </select>
+            <button 
+              onClick={handleSave}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors bg-indigo-600 rounded-lg hover:bg-indigo-700"
+            >
+              <span className="material-symbols-outlined">save</span>
+              Simpan
+            </button>
+            <button 
+              onClick={() => setIsAddEventModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors bg-blue-600 rounded-lg hover:bg-blue-700"
+            >
+              <span className="material-symbols-outlined">add</span>
+              Tambah Kegiatan
+            </button>
+            <button 
+              onClick={() => setIsImportModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors bg-green-600 rounded-lg hover:bg-green-700"
+            >
+              <span className="material-symbols-outlined">upload_file</span>
+              Import Pintar
+            </button>
+            <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-200 rounded-lg dark:bg-sidebar-dark dark:border-border-dark dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800">
+              <span className="material-symbols-outlined">download</span>
+              Unduh PDF
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Kalender View */}
         <div className="lg:col-span-2 p-6 bg-white border border-gray-100 rounded-2xl shadow-sm dark:bg-sidebar-dark dark:border-border-dark">
           <div className="flex items-center justify-between mb-6">
@@ -572,6 +641,111 @@ const KalenderAkademik: React.FC = () => {
           </div>
         </div>
       </div>
+    </div>
+  )}
+
+      {activeTab === 'minggu' && (
+        <div className="p-6 bg-white border border-gray-100 rounded-2xl shadow-sm dark:bg-sidebar-dark dark:border-border-dark">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Pengaturan Minggu Efektif</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Tentukan jumlah minggu efektif belajar untuk setiap bulan</p>
+            </div>
+            <button 
+              onClick={saveEffectiveWeeks}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors bg-indigo-600 rounded-lg hover:bg-indigo-700"
+            >
+              <span className="material-symbols-outlined">save</span>
+              Simpan
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-800 dark:text-gray-300">
+                <tr>
+                  <th className="px-6 py-3">Bulan</th>
+                  <th className="px-6 py-3">Jumlah Minggu</th>
+                  <th className="px-6 py-3">Minggu Efektif</th>
+                  <th className="px-6 py-3">Minggu Tidak Efektif</th>
+                  <th className="px-6 py-3">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {months.map((month) => {
+                  const weeks = effectiveWeeks[month] !== undefined ? effectiveWeeks[month] : 4;
+                  return (
+                    <tr key={month} className="bg-white border-b dark:bg-sidebar-dark dark:border-border-dark hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{month}</td>
+                      <td className="px-6 py-4">4</td>
+                      <td className="px-6 py-4">
+                        <input
+                          type="number"
+                          min="0"
+                          max="5"
+                          value={weeks}
+                          onChange={(e) => setEffectiveWeeks({...effectiveWeeks, [month]: parseInt(e.target.value) || 0})}
+                          className="w-20 px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                      </td>
+                      <td className="px-6 py-4">{Math.max(0, 4 - weeks)}</td>
+                      <td className="px-6 py-4">
+                        <input
+                          type="text"
+                          placeholder="Keterangan..."
+                          className="w-full px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'hari' && (
+        <div className="p-6 bg-white border border-gray-100 rounded-2xl shadow-sm dark:bg-sidebar-dark dark:border-border-dark">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Pengaturan Hari Efektif</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Pilih hari-hari yang merupakan hari efektif belajar</p>
+            </div>
+            <button 
+              onClick={saveSchoolDays}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors bg-indigo-600 rounded-lg hover:bg-indigo-700"
+            >
+              <span className="material-symbols-outlined">save</span>
+              Simpan
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'].map((day) => (
+              <label key={day} className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${
+                schoolDays.includes(day) 
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500' 
+                  : 'border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={schoolDays.includes(day)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSchoolDays([...schoolDays, day]);
+                    } else {
+                      setSchoolDays(schoolDays.filter(d => d !== day));
+                    }
+                  }}
+                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <span className="ml-3 font-medium text-gray-900 dark:text-white">{day}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Add Event Modal */}
       {isAddEventModalOpen && (

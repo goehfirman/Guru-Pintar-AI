@@ -18,7 +18,6 @@ const navItems = [
   { name: 'Jurnal Agenda Guru', path: '/jurnal', icon: 'book' },
   { name: 'Absensi Siswa', path: '/absensi', icon: 'fact_check' },
   { name: 'Penilaian Siswa', path: '/penilaian', icon: 'assignment' },
-  { name: 'Kalender Akademik', path: '/kalender', icon: 'event' },
   { name: 'Manajemen Ekskul', path: '/ekskul', icon: 'sports_soccer' },
   { name: 'Portfolio Prestasi', path: '/portfolio', icon: 'emoji_events' },
 ];
@@ -38,6 +37,7 @@ const settingsItems = [
   { name: 'Pengaturan Sekolah', path: '/pengaturan', icon: 'settings' },
   { name: 'Pengaturan Kelas', path: '/pengaturan-kelas', icon: 'class' },
   { name: 'Mata Pelajaran', path: '/pengaturan-mapel', icon: 'subject' },
+  { name: 'Kalender Akademik', path: '/kalender', icon: 'event' },
   { name: 'Panduan Kurikulum', path: '/panduan', icon: 'menu_book' },
 ];
 
