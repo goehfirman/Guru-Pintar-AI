@@ -78,17 +78,105 @@ const JadwalPelajaran: React.FC = () => {
   };
 
   const processImport = async () => {
-    if (!importFile) return;
+    if (!importFile) {
+      setImportError('Silakan pilih file terlebih dahulu.');
+      return;
+    }
+
     setIsImporting(true);
     setImportError(null);
+
     try {
-      // Simulation of import processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      // In a real scenario, use GoogleGenAI here to process the file
-      setIsImportModalOpen(false);
-      setImportFile(null);
-    } catch (e) {
-      setImportError('Gagal memproses file. Silakan coba lagi.');
+      const apiKey = localStorage.getItem('gemini_api_key');
+      if (!apiKey) {
+        throw new Error('API Key Gemini tidak ditemukan. Silakan masukkan API Key di menu Dashboard.');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      let promptContent: any[] = [];
+
+      if (importFile.name.endsWith('.pdf')) {
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64 = result.split(',')[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(importFile);
+        });
+
+        promptContent = [
+          {
+            inlineData: {
+              data: base64Data,
+              mimeType: 'application/pdf',
+            },
+          },
+          {
+            text: 'Ekstrak jadwal pelajaran dari dokumen PDF ini. Petakan ke dalam format JSON array of objects dengan properti: time (format "HH:mm - HH:mm"), monday, tuesday, wednesday, thursday, friday. Jika ada waktu istirahat, masukkan juga sebagai baris tersendiri. Pastikan semua hari kerja (Senin-Jumat) terisi.',
+          },
+        ];
+      } else if (importFile.name.endsWith('.xls') || importFile.name.endsWith('.xlsx')) {
+        const arrayBuffer = await importFile.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        let csvData = '';
+        
+        workbook.SheetNames.forEach(sheetName => {
+          const worksheet = workbook.Sheets[sheetName];
+          csvData += `Sheet: ${sheetName}\n`;
+          csvData += XLSX.utils.sheet_to_csv(worksheet);
+          csvData += '\n\n';
+        });
+
+        promptContent = [
+          {
+            text: `Berikut adalah data jadwal pelajaran dalam format CSV:\n\n${csvData}\n\nEkstrak jadwal pelajaran dari data tersebut. Petakan ke dalam format JSON array of objects dengan properti: time (format "HH:mm - HH:mm"), monday, tuesday, wednesday, thursday, friday. Jika ada waktu istirahat, masukkan juga sebagai baris tersendiri.`,
+          },
+        ];
+      } else {
+        throw new Error('Format file tidak didukung. Gunakan PDF atau Excel (.xls, .xlsx).');
+      }
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: { parts: promptContent },
+        config: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                time: { type: Type.STRING, description: 'Rentang waktu, contoh "07:30 - 09:00"' },
+                monday: { type: Type.STRING },
+                tuesday: { type: Type.STRING },
+                wednesday: { type: Type.STRING },
+                thursday: { type: Type.STRING },
+                friday: { type: Type.STRING },
+              },
+              required: ['time', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+            },
+          },
+        },
+      });
+
+      const extractedSchedule = JSON.parse(response.text || '[]');
+      if (extractedSchedule && extractedSchedule.length > 0) {
+        setSchedule(extractedSchedule);
+        localStorage.setItem(getStorageKey('guru_schedule'), JSON.stringify(extractedSchedule));
+        window.dispatchEvent(new Event('scheduleUpdated'));
+        setIsImportModalOpen(false);
+        setImportFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        alert(`Berhasil mengimport jadwal pelajaran!`);
+      } else {
+        throw new Error('Gagal mengekstrak data jadwal dari file tersebut.');
+      }
+    } catch (error: any) {
+      console.error('Import error:', error);
+      setImportError(error.message || 'Terjadi kesalahan saat memproses file.');
     } finally {
       setIsImporting(false);
     }
