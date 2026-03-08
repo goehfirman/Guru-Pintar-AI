@@ -2,15 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { getStorageKey } from '../utils/academic';
 
-const initialStudents = [
-  { id: '1001', nisn: '0051234567', name: 'Ahmad Fauzi', class: 'X IPA 1', gender: 'L', status: 'Aktif' },
-  { id: '1002', nisn: '0051234568', name: 'Budi Santoso', class: 'X IPA 1', gender: 'L', status: 'Aktif' },
-  { id: '1003', nisn: '0051234569', name: 'Citra Lestari', class: 'X IPA 1', gender: 'P', status: 'Aktif' },
-  { id: '1004', nisn: '0051234570', name: 'Dewi Ayu', class: 'X IPA 1', gender: 'P', status: 'Aktif' },
-  { id: '1005', nisn: '0051234571', name: 'Eko Prasetyo', class: 'X IPA 1', gender: 'L', status: 'Pindah' },
-  { id: '1006', nisn: '0051234572', name: 'Fina Melati', class: 'X IPA 2', gender: 'P', status: 'Aktif' },
-  { id: '1007', nisn: '0051234573', name: 'Gilang Ramadhan', class: 'X IPA 2', gender: 'L', status: 'Aktif' },
-];
+const initialStudents: any[] = [];
 
 const DataSiswa: React.FC = () => {
   const [studentsList, setStudentsList] = useState<any[]>([]);
@@ -290,6 +282,21 @@ const DataSiswa: React.FC = () => {
             Tambah Siswa
           </button>
 
+          <button 
+            onClick={() => {
+              if (confirm('Apakah Anda yakin ingin menghapus SEMUA data siswa?')) {
+                setStudentsList([]);
+                localStorage.removeItem(getStorageKey('guru_students'));
+                window.dispatchEvent(new Event('studentsUpdated'));
+                alert('Semua data siswa telah dihapus.');
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-700 transition-colors bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800/50 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40"
+          >
+            <span className="material-symbols-outlined">delete_sweep</span>
+            Hapus Semua
+          </button>
+          
           <button 
             onClick={handleManualSave}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors rounded-lg bg-green-600 hover:bg-green-700"

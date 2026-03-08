@@ -134,6 +134,7 @@ const KalenderAkademik: React.FC = () => {
   // Save handlers
   const saveEffectiveWeeks = () => {
     localStorage.setItem(getStorageKey('effective_weeks'), JSON.stringify(effectiveWeeks));
+    window.dispatchEvent(new Event('academicSettingsUpdated'));
     setShowSaveNotification(true);
     setTimeout(() => setShowSaveNotification(false), 3000);
   };
@@ -211,6 +212,54 @@ const KalenderAkademik: React.FC = () => {
   };
 
   const { daysInMonth, startDay, monthIndex, year } = getMonthData(currentMonth);
+
+  const isHoliday = (day: number, monthName: string, year: number) => {
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    const monthIdx = monthNames.indexOf(monthName);
+    const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const shortMonth = shortMonthNames[monthIdx];
+    
+    return events.some(e => {
+      if (e.type !== 'Libur Nasional' && e.type !== 'Libur Sekolah') return false;
+      
+      // Exact match: "17 Agu 2023"
+      if (e.date === `${day} ${shortMonth} ${year}`) return true;
+      
+      // Range match: "20-24 Nov 2023"
+      if (e.date.includes('-')) {
+        const parts = e.date.split(' ');
+        if (parts.length >= 2) {
+          const range = parts[0].split('-');
+          const evtMonth = parts[1];
+          const evtYear = parts[2] || year.toString();
+          
+          if (evtMonth === shortMonth && evtYear === year.toString()) {
+            const start = parseInt(range[0]);
+            const end = parseInt(range[1]);
+            return day >= start && day <= end;
+          }
+        }
+      }
+      return false;
+    });
+  };
+
+  const getEffectiveDaysCount = (monthStr: string) => {
+    const { daysInMonth, monthIndex, year } = getMonthData(monthStr);
+    const monthName = monthStr.split(' ')[0];
+    const dayNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    
+    let count = 0;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(year, monthIndex, d);
+      const dayName = dayNames[date.getDay()];
+      
+      if (schoolDays.includes(dayName) && !isHoliday(d, monthName, year)) {
+        count++;
+      }
+    }
+    return count;
+  };
 
   const handlePrevMonth = () => {
     const currentIndex = months.indexOf(currentMonth);
@@ -764,6 +813,34 @@ const KalenderAkademik: React.FC = () => {
                 <span className="ml-3 font-medium text-gray-900 dark:text-white">{day}</span>
               </label>
             ))}
+          </div>
+
+          <div className="mt-8">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Rekap Hari Efektif Tahunan</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-800 dark:text-gray-300">
+                  <tr>
+                    <th className="px-6 py-3">Bulan</th>
+                    <th className="px-6 py-3">Hari Efektif</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {months.map((month) => (
+                    <tr key={month} className="bg-white border-b dark:bg-sidebar-dark dark:border-border-dark hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                      <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{month}</td>
+                      <td className="px-6 py-4">{getEffectiveDaysCount(month)} Hari</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-gray-50 dark:bg-gray-800 font-bold">
+                    <td className="px-6 py-4 text-gray-900 dark:text-white">Total Satu Tahun</td>
+                    <td className="px-6 py-4 text-blue-600 dark:text-blue-400">
+                      {months.reduce((acc, month) => acc + getEffectiveDaysCount(month), 0)} Hari
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

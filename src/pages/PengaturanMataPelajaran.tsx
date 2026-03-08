@@ -15,19 +15,20 @@ interface SubjectItem {
   name: string;
   code: string;
   mappedClasses: string[]; // Array of class IDs
+  jpPerTahun: number;
 }
 
 const initialSubjects: SubjectItem[] = [
-  { id: '1', code: 'PAI', name: 'Pendidikan Agama Islam', mappedClasses: ['1', '2', '3'] },
-  { id: '2', code: 'PKN', name: 'Pendidikan Pancasila', mappedClasses: ['1', '2', '3'] },
-  { id: '3', code: 'IND', name: 'Bahasa Indonesia', mappedClasses: ['1', '2', '3'] },
-  { id: '4', code: 'MTK', name: 'Matematika', mappedClasses: ['1', '2', '3'] },
-  { id: '5', code: 'IPAS', name: 'IPAS', mappedClasses: ['1', '2', '3'] },
-  { id: '6', code: 'PJOK', name: 'PJOK', mappedClasses: ['1', '2', '3'] },
-  { id: '7', code: 'SBDP', name: 'Seni Budaya', mappedClasses: ['1', '2', '3'] },
-  { id: '8', code: 'ING', name: 'Bahasa Inggris', mappedClasses: ['1', '2', '3'] },
-  { id: '9', code: 'PLBJ', name: 'PLBJ', mappedClasses: ['1', '2', '3'] },
-  { id: '10', code: 'KKA', name: 'Koding dan Kecerdasan Artifisial', mappedClasses: ['1', '2', '3'] },
+  { id: '1', code: 'PAI', name: 'Pendidikan Agama Islam', mappedClasses: ['1', '2', '3'], jpPerTahun: 108 },
+  { id: '2', code: 'PKN', name: 'Pendidikan Pancasila', mappedClasses: ['1', '2', '3'], jpPerTahun: 72 },
+  { id: '3', code: 'IND', name: 'Bahasa Indonesia', mappedClasses: ['1', '2', '3'], jpPerTahun: 216 },
+  { id: '4', code: 'MTK', name: 'Matematika', mappedClasses: ['1', '2', '3'], jpPerTahun: 180 },
+  { id: '5', code: 'IPAS', name: 'IPAS', mappedClasses: ['1', '2', '3'], jpPerTahun: 180 },
+  { id: '6', code: 'PJOK', name: 'PJOK', mappedClasses: ['1', '2', '3'], jpPerTahun: 108 },
+  { id: '7', code: 'SBDP', name: 'Seni Budaya', mappedClasses: ['1', '2', '3'], jpPerTahun: 108 },
+  { id: '8', code: 'ING', name: 'Bahasa Inggris', mappedClasses: ['1', '2', '3'], jpPerTahun: 108 },
+  { id: '9', code: 'PLBJ', name: 'PLBJ', mappedClasses: ['1', '2', '3'], jpPerTahun: 72 },
+  { id: '10', code: 'KKA', name: 'Koding dan Kecerdasan Artifisial', mappedClasses: ['1', '2', '3'], jpPerTahun: 72 },
 ];
 
 const PengaturanMataPelajaran: React.FC = () => {
@@ -80,7 +81,8 @@ const PengaturanMataPelajaran: React.FC = () => {
     id: '',
     name: '',
     code: '',
-    mappedClasses: []
+    mappedClasses: [],
+    jpPerTahun: 0
   });
 
   const handleCloseModal = () => {
@@ -88,7 +90,7 @@ const PengaturanMataPelajaran: React.FC = () => {
   };
 
   const handleAddClick = () => {
-    setFormData({ id: '', name: '', code: '', mappedClasses: [] });
+    setFormData({ id: '', name: '', code: '', mappedClasses: [], jpPerTahun: 0 });
     setModalState({ isOpen: true, type: 'add' });
   };
 
@@ -179,6 +181,7 @@ const PengaturanMataPelajaran: React.FC = () => {
                 <th scope="col" className="px-6 py-4 font-medium">No</th>
                 <th scope="col" className="px-6 py-4 font-medium">Kode</th>
                 <th scope="col" className="px-6 py-4 font-medium">Mata Pelajaran</th>
+                <th scope="col" className="px-6 py-4 font-medium">JP / Tahun</th>
                 <th scope="col" className="px-6 py-4 font-medium">Kelas yang Diajar</th>
                 <th scope="col" className="px-6 py-4 font-medium text-right">Aksi</th>
               </tr>
@@ -190,6 +193,7 @@ const PengaturanMataPelajaran: React.FC = () => {
                     <td className="px-6 py-4">{index + 1}</td>
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{subjectItem.code}</td>
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{subjectItem.name}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{subjectItem.jpPerTahun}</td>
                     <td className="px-6 py-4">
                       <div className="flex flex-wrap gap-1">
                         {subjectItem.mappedClasses && subjectItem.mappedClasses.length > 0 ? (
@@ -249,7 +253,7 @@ const PengaturanMataPelajaran: React.FC = () => {
             <div className="mb-6">
               {(modalState.type === 'add' || modalState.type === 'edit') && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-4 gap-4">
                     <div className="col-span-1">
                       <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">Kode</label>
                       <input 
@@ -268,6 +272,16 @@ const PengaturanMataPelajaran: React.FC = () => {
                         onChange={(e) => setFormData({...formData, name: e.target.value})}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         placeholder="Contoh: Matematika Wajib"
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <label className="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300">JP / Tahun</label>
+                      <input 
+                        type="number" 
+                        value={formData.jpPerTahun} 
+                        onChange={(e) => setFormData({...formData, jpPerTahun: parseInt(e.target.value) || 0})}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        placeholder="0"
                       />
                     </div>
                   </div>

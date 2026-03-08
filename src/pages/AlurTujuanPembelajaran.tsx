@@ -422,6 +422,24 @@ const AlurTujuanPembelajaran: React.FC = () => {
             ))}
           </select>
           <button
+            onClick={() => {
+              if (confirm(`Apakah Anda yakin ingin menghapus SEMUA data ATP untuk ${subjects.find(s => s.id === selectedSubjectId)?.name}?`)) {
+                setAtpData([]);
+                localStorage.removeItem(getStorageKey(`guru_atp_${selectedSubjectId}`));
+                alert('Semua data ATP untuk mata pelajaran ini telah dihapus.');
+              }
+            }}
+            disabled={atpData.length === 0}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
+              atpData.length > 0 
+                ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/50' 
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+            }`}
+          >
+            <span className="material-symbols-outlined">delete_sweep</span>
+            Hapus Semua
+          </button>
+          <button
             onClick={handleBulkDelete}
             disabled={selectedItems.size === 0}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors rounded-lg ${

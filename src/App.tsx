@@ -19,6 +19,7 @@ import ModulAjarAI from './pages/ModulAjarAI';
 import BankSoalAI from './pages/BankSoalAI';
 import CetakLaporan from './pages/CetakLaporan';
 import KirimKepalaSekolah from './pages/KirimKepalaSekolah';
+import ProgramTahunan from './pages/ProgramTahunan';
 import PlaceholderPage from './pages/PlaceholderPage';
 import AlurTujuanPembelajaran from './pages/AlurTujuanPembelajaran';
 
@@ -29,7 +30,7 @@ function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="atp" element={<AlurTujuanPembelajaran />} />
-          <Route path="prota" element={<PlaceholderPage />} />
+          <Route path="prota" element={<ProgramTahunan />} />
           <Route path="promes" element={<PlaceholderPage />} />
           <Route path="profil" element={<ProfilSaya />} />
           <Route path="pengaturan" element={<PengaturanSekolah />} />

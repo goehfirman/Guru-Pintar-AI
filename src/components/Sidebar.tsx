@@ -13,8 +13,6 @@ const navItems = [
   { name: 'Alur Tujuan Pembelajaran', path: '/atp', icon: 'route' },
   { name: 'Program Tahunan', path: '/prota', icon: 'calendar_view_month' },
   { name: 'Program Semester', path: '/promes', icon: 'date_range' },
-  { name: 'Data Siswa', path: '/data-siswa', icon: 'group' },
-  { name: 'Jadwal Pelajaran', path: '/jadwal', icon: 'calendar_month' },
   { name: 'Jurnal Agenda Guru', path: '/jurnal', icon: 'book' },
   { name: 'Absensi Siswa', path: '/absensi', icon: 'fact_check' },
   { name: 'Penilaian Siswa', path: '/penilaian', icon: 'assignment' },
@@ -36,8 +34,10 @@ const settingsItems = [
   { name: 'Profil Saya', path: '/profil', icon: 'person' },
   { name: 'Pengaturan Sekolah', path: '/pengaturan', icon: 'settings' },
   { name: 'Pengaturan Kelas', path: '/pengaturan-kelas', icon: 'class' },
+  { name: 'Data Siswa', path: '/data-siswa', icon: 'group' },
   { name: 'Mata Pelajaran', path: '/pengaturan-mapel', icon: 'subject' },
   { name: 'Kalender Akademik', path: '/kalender', icon: 'event' },
+  { name: 'Jadwal Pelajaran', path: '/jadwal', icon: 'calendar_month' },
   { name: 'Panduan Kurikulum', path: '/panduan', icon: 'menu_book' },
 ];
 

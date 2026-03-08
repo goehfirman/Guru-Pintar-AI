@@ -13,11 +13,14 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const [userProfile, setUserProfile] = useState<UserProfile>(getUserProfile());
 
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.remove('dark');
+    setIsDarkMode(false);
+  }, []);
+
+  useEffect(() => {
+    // Force light mode
+    document.documentElement.classList.remove('dark');
+    setIsDarkMode(false);
   }, [isDarkMode]);
 
   useEffect(() => {
@@ -71,14 +74,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           <span className="material-symbols-outlined text-sm">calendar_month</span>
           <span className="text-sm font-medium">TA {academicInfo.year}</span>
         </div>
-        <button
-          onClick={() => setIsDarkMode(!isDarkMode)}
-          className="p-2 text-gray-500 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-        >
-          <span className="material-symbols-outlined">
-            {isDarkMode ? 'light_mode' : 'dark_mode'}
-          </span>
-        </button>
         <button className="p-2 text-gray-500 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 relative">
           <span className="material-symbols-outlined">notifications</span>
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
