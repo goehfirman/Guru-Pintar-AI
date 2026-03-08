@@ -34,10 +34,30 @@ const months = [
 ];
 
 const KalenderAkademik: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'kalender' | 'minggu' | 'hari'>('kalender');
+  // Initialize state from localStorage if available
+  const [activeTab, setActiveTab] = useState<'kalender' | 'minggu' | 'hari'>(() => {
+    return (localStorage.getItem('kalender_active_tab') as 'kalender' | 'minggu' | 'hari') || 'kalender';
+  });
+  
   const [academicYear, setAcademicYear] = useState('2023/2024');
-  const [currentMonth, setCurrentMonth] = useState('');
+  
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    return localStorage.getItem('kalender_current_month') || '';
+  });
+  
   const [events, setEvents] = useState(initialEvents);
+
+  // Save activeTab whenever it changes
+  useEffect(() => {
+    localStorage.setItem('kalender_active_tab', activeTab);
+  }, [activeTab]);
+
+  // Save currentMonth whenever it changes
+  useEffect(() => {
+    if (currentMonth) {
+      localStorage.setItem('kalender_current_month', currentMonth);
+    }
+  }, [currentMonth]);
   
   // Minggu Efektif State
   const [effectiveWeeks, setEffectiveWeeks] = useState<Record<string, number>>({});
@@ -76,16 +96,17 @@ const KalenderAkademik: React.FC = () => {
             
             if (isCurrentInAcademic) {
               const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-              setCurrentMonth(`${monthNames[currentMonthIndex]} ${currentYear}`);
+              // Only set if not already set (e.g. from localStorage)
+              setCurrentMonth(prev => prev || `${monthNames[currentMonthIndex]} ${currentYear}`);
             } else {
-              setCurrentMonth(`Juli ${startYear}`);
+              setCurrentMonth(prev => prev || `Juli ${startYear}`);
             }
           }
         } catch (e) {
           console.error("Failed to parse academic settings", e);
         }
       } else {
-        setCurrentMonth('Juli 2023');
+        setCurrentMonth(prev => prev || 'Juli 2023');
       }
 
       // Load effective weeks
