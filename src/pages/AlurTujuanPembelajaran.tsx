@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { getStorageKey } from '../utils/academic';
 import { GoogleGenAI } from "@google/genai";
 
@@ -41,6 +42,7 @@ const AlurTujuanPembelajaran: React.FC = () => {
   const [importSubjectId, setImportSubjectId] = useState('');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [formData, setFormData] = useState<Omit<ATPItem, 'id' | 'subjectId'>>({
     kodeTp: '',
     unitTopik: '',
@@ -73,6 +75,7 @@ const AlurTujuanPembelajaran: React.FC = () => {
   useEffect(() => {
     if (selectedSubjectId) {
       loadAtpData(selectedSubjectId);
+      setSelectedItems(new Set()); // Reset selection when subject changes
     }
   }, [selectedSubjectId]);
 
@@ -87,6 +90,35 @@ const AlurTujuanPembelajaran: React.FC = () => {
     } else {
       setAtpData([]);
     }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedItems.size === atpData.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(atpData.map(item => item.id)));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedItems.size === 0) return;
+    
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus ${selectedItems.size} data yang dipilih?`)) return;
+    
+    const newData = atpData.filter(item => !selectedItems.has(item.id));
+    setAtpData(newData);
+    localStorage.setItem(getStorageKey(`guru_atp_${selectedSubjectId}`), JSON.stringify(newData));
+    setSelectedItems(new Set());
   };
 
   const handleSave = () => {
@@ -113,7 +145,7 @@ const AlurTujuanPembelajaran: React.FC = () => {
   };
 
   const handleSmartImport = async () => {
-    if (!importSubjectId) return;
+    if (!importSubjectId || !importFile) return;
     
     const subject = subjects.find(s => s.id === importSubjectId);
     if (!subject) return;
@@ -131,44 +163,97 @@ const AlurTujuanPembelajaran: React.FC = () => {
         return;
       }
 
-      if (apiKey) {
-        const ai = new GoogleGenAI({ apiKey });
-        
-        const prompt = `Buatkan contoh Alur Tujuan Pembelajaran (ATP) untuk mata pelajaran ${subject.name} tingkat SMA (Fase E/F). 
-        Berikan output dalam format JSON Array murni tanpa markdown block. 
-        Setiap objek harus memiliki properti:
-        - kodeTp (string, contoh: "1.1")
-        - unitTopik (string, materi pokok)
-        - jejakTurunanCp (string, alur tujuan pembelajaran)
-        - rumusanTp (string, tujuan pembelajaran)
-        - asesmen (string, jenis asesmen)
-        - jp (string, alokasi waktu angka saja)
-        
-        Buat minimal 5 item.`;
+      const ai = new GoogleGenAI({ apiKey });
+      let promptContent: any[] = [];
 
-        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: prompt,
+      if (importFile.name.endsWith('.pdf')) {
+        // Handle PDF
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const base64 = result.split(',')[1];
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(importFile);
         });
-        
-        const text = response.text;
-        
-        if (text) {
-          // Clean up markdown if present
-          const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-          const parsedData = JSON.parse(jsonStr);
 
-          newItems = parsedData.map((item: any, index: number) => ({
-            id: (Date.now() + index).toString(),
-            subjectId: importSubjectId,
-            kodeTp: item.kodeTp,
-            unitTopik: item.unitTopik,
-            jejakTurunanCp: item.jejakTurunanCp,
-            rumusanTp: item.rumusanTp,
-            asesmen: item.asesmen,
-            jp: item.jp
-          }));
-        }
+        promptContent = [
+          {
+            inlineData: {
+              data: base64Data,
+              mimeType: 'application/pdf',
+            },
+          },
+          {
+            text: `Ekstrak data Alur Tujuan Pembelajaran (ATP) dari dokumen PDF ini untuk mata pelajaran ${subject.name}. 
+            Petakan ke dalam format JSON Array murni tanpa markdown block.
+            Setiap objek harus memiliki properti:
+            - kodeTp (string, contoh: "1.1")
+            - unitTopik (string, materi pokok)
+            - jejakTurunanCp (string, alur tujuan pembelajaran / capaian pembelajaran)
+            - rumusanTp (string, tujuan pembelajaran)
+            - asesmen (string, jenis asesmen)
+            - jp (string, alokasi waktu angka saja)
+            
+            PENTING: Jangan mengubah data, cukup petakan saja sesuai dengan tabel yang ada di dokumen.`,
+          },
+        ];
+      } else if (importFile.name.endsWith('.xls') || importFile.name.endsWith('.xlsx')) {
+        // Handle Excel
+        const arrayBuffer = await importFile.arrayBuffer();
+        const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+        let csvData = '';
+        
+        workbook.SheetNames.forEach(sheetName => {
+          const worksheet = workbook.Sheets[sheetName];
+          csvData += `Sheet: ${sheetName}\n`;
+          csvData += XLSX.utils.sheet_to_csv(worksheet);
+          csvData += '\n\n';
+        });
+
+        promptContent = [
+          {
+            text: `Berikut adalah data Alur Tujuan Pembelajaran (ATP) dalam format CSV untuk mata pelajaran ${subject.name}:\n\n${csvData}\n\n
+            Ekstrak data ATP dari teks tersebut. Petakan ke dalam format JSON Array murni tanpa markdown block.
+            Setiap objek harus memiliki properti:
+            - kodeTp (string, contoh: "1.1")
+            - unitTopik (string, materi pokok)
+            - jejakTurunanCp (string, alur tujuan pembelajaran / capaian pembelajaran)
+            - rumusanTp (string, tujuan pembelajaran)
+            - asesmen (string, jenis asesmen)
+            - jp (string, alokasi waktu angka saja)
+            
+            PENTING: Jangan mengubah data, cukup petakan saja sesuai dengan tabel yang ada.`,
+          },
+        ];
+      } else {
+        throw new Error('Format file tidak didukung. Gunakan PDF atau Excel (.xls, .xlsx).');
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: { parts: promptContent },
+      });
+      
+      const text = response.text;
+      
+      if (text) {
+        // Clean up markdown if present
+        const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsedData = JSON.parse(jsonStr);
+
+        newItems = parsedData.map((item: any, index: number) => ({
+          id: (Date.now() + index).toString(),
+          subjectId: importSubjectId,
+          kodeTp: item.kodeTp || '',
+          unitTopik: item.unitTopik || '',
+          jejakTurunanCp: item.jejakTurunanCp || '',
+          rumusanTp: item.rumusanTp || '',
+          asesmen: item.asesmen || '',
+          jp: item.jp ? String(item.jp) : ''
+        }));
       }
 
       // Save to storage
@@ -191,19 +276,27 @@ const AlurTujuanPembelajaran: React.FC = () => {
       setIsImportModalOpen(false);
       setImportSubjectId('');
       setImportFile(null);
+      alert(`Berhasil mengimport ${newItems.length} data ATP!`);
     } catch (error) {
       console.error("Error generating ATP:", error);
-      alert("Gagal membuat ATP otomatis. Silakan coba lagi.");
+      alert("Gagal mengimport ATP. Pastikan format file sesuai dan coba lagi.");
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus data ini?')) return;
+    if (!window.confirm('Apakah Anda yakin ingin menghapus data ini?')) return;
+    
     const newData = atpData.filter(item => item.id !== id);
     setAtpData(newData);
     localStorage.setItem(getStorageKey(`guru_atp_${selectedSubjectId}`), JSON.stringify(newData));
+    
+    if (selectedItems.has(id)) {
+      const newSelected = new Set(selectedItems);
+      newSelected.delete(id);
+      setSelectedItems(newSelected);
+    }
   };
 
   return (
@@ -226,6 +319,18 @@ const AlurTujuanPembelajaran: React.FC = () => {
             ))}
           </select>
           <button
+            onClick={handleBulkDelete}
+            disabled={selectedItems.size === 0}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
+              selectedItems.size > 0 
+                ? 'bg-red-600 text-white hover:bg-red-700' 
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+            }`}
+          >
+            <span className="material-symbols-outlined">delete</span>
+            {selectedItems.size > 0 ? `Hapus (${selectedItems.size})` : 'Hapus'}
+          </button>
+          <button
             onClick={() => setIsImportModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white transition-colors rounded-lg bg-emerald-600 hover:bg-emerald-700"
           >
@@ -247,6 +352,16 @@ const AlurTujuanPembelajaran: React.FC = () => {
           <table className="w-full text-sm text-left text-gray-500 dark:text-gray-400">
             <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-800 dark:text-gray-300">
               <tr>
+                <th scope="col" className="px-4 py-4 w-4">
+                  <div className="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      checked={atpData.length > 0 && selectedItems.size === atpData.length}
+                      onChange={handleSelectAll}
+                    />
+                  </div>
+                </th>
                 <th scope="col" className="px-6 py-4 font-medium">Kode TP</th>
                 <th scope="col" className="px-6 py-4 font-medium">Unit / Topik</th>
                 <th scope="col" className="px-6 py-4 font-medium">Jejak Turunan CP</th>
@@ -259,7 +374,17 @@ const AlurTujuanPembelajaran: React.FC = () => {
             <tbody>
               {atpData.length > 0 ? (
                 atpData.map((item) => (
-                  <tr key={item.id} className="bg-white border-b dark:bg-sidebar-dark dark:border-border-dark hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                  <tr key={item.id} className={`bg-white border-b dark:bg-sidebar-dark dark:border-border-dark hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${selectedItems.has(item.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                    <td className="px-4 py-4 w-4">
+                      <div className="flex items-center">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          checked={selectedItems.has(item.id)}
+                          onChange={() => handleToggleSelect(item.id)}
+                        />
+                      </div>
+                    </td>
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{item.kodeTp}</td>
                     <td className="px-6 py-4">{item.unitTopik}</td>
                     <td className="px-6 py-4">{item.jejakTurunanCp}</td>
@@ -278,7 +403,7 @@ const AlurTujuanPembelajaran: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                     Belum ada data ATP untuk mata pelajaran ini.
                   </td>
                 </tr>
@@ -304,7 +429,7 @@ const AlurTujuanPembelajaran: React.FC = () => {
 
             <div className="space-y-4">
               <div className="p-4 mb-4 text-sm text-blue-800 bg-blue-50 rounded-lg dark:bg-blue-900/30 dark:text-blue-300">
-                Fitur ini akan membuatkan draft ATP secara otomatis berdasarkan mata pelajaran yang dipilih menggunakan template standar Kurikulum Merdeka.
+                Fitur ini akan mengekstrak data ATP dari file yang Anda upload (PDF/Excel) dan memetakannya secara otomatis ke dalam sistem.
               </div>
 
               <div>
