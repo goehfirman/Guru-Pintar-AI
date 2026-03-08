@@ -123,7 +123,13 @@ const AlurTujuanPembelajaran: React.FC = () => {
     try {
       let newItems: ATPItem[] = [];
       
-      const apiKey = localStorage.getItem('gemini_api_key') || process.env.GEMINI_API_KEY;
+      const apiKey = localStorage.getItem('gemini_api_key');
+
+      if (!apiKey) {
+        alert("Silakan masukkan API Key Gemini terlebih dahulu di menu Dashboard.");
+        setIsGenerating(false);
+        return;
+      }
 
       if (apiKey) {
         const ai = new GoogleGenAI({ apiKey });
@@ -141,7 +147,7 @@ const AlurTujuanPembelajaran: React.FC = () => {
         Buat minimal 5 item.`;
 
         const response = await ai.models.generateContent({
-          model: "gemini-2.0-flash-exp",
+          model: "gemini-1.5-flash",
           contents: prompt,
         });
         
@@ -163,40 +169,6 @@ const AlurTujuanPembelajaran: React.FC = () => {
             jp: item.jp
           }));
         }
-      } else {
-        // Fallback simulation if no API key
-        newItems = [
-          {
-            id: Date.now().toString(),
-            subjectId: importSubjectId,
-            kodeTp: '1.1',
-            unitTopik: `Pengantar ${subject.name}`,
-            jejakTurunanCp: `Peserta didik mampu mengidentifikasi dan menjelaskan prinsip dasar ${subject.name}`,
-            rumusanTp: `Memahami konsep dasar ${subject.name} secara komprehensif`,
-            asesmen: 'Tes Tulis, Observasi',
-            jp: '2'
-          },
-          {
-            id: (Date.now() + 1).toString(),
-            subjectId: importSubjectId,
-            kodeTp: '1.2',
-            unitTopik: `Analisis Kasus ${subject.name}`,
-            jejakTurunanCp: `Peserta didik mampu menghubungkan teori ${subject.name} dengan studi kasus nyata`,
-            rumusanTp: `Menganalisis fenomena terkait ${subject.name} di lingkungan sekitar`,
-            asesmen: 'Presentasi Kelompok',
-            jp: '4'
-          },
-          {
-            id: (Date.now() + 2).toString(),
-            subjectId: importSubjectId,
-            kodeTp: '1.3',
-            unitTopik: `Proyek ${subject.name}`,
-            jejakTurunanCp: `Peserta didik mampu merancang proyek sederhana berbasis ${subject.name}`,
-            rumusanTp: `Mengevaluasi pemahaman ${subject.name} melalui proyek sederhana`,
-            asesmen: 'Penilaian Proyek',
-            jp: '6'
-          }
-        ];
       }
 
       // Save to storage
