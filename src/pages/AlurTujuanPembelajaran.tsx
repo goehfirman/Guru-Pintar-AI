@@ -256,25 +256,60 @@ const AlurTujuanPembelajaran: React.FC = () => {
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: { parts: promptContent },
+        config: {
+          responseMimeType: 'application/json',
+        },
       });
       
       const text = response.text;
       
       if (text) {
-        // Clean up markdown if present
-        const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        const parsedData = JSON.parse(jsonStr);
+        // Clean up markdown if present and find JSON array
+        let jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        // Find the first '[' and last ']' to handle potential extra text
+        const firstBracket = jsonStr.indexOf('[');
+        const lastBracket = jsonStr.lastIndexOf(']');
+        
+        if (firstBracket !== -1 && lastBracket !== -1) {
+          jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
+        }
 
-        newItems = parsedData.map((item: any, index: number) => ({
-          id: (Date.now() + index).toString(),
-          subjectId: importSubjectId,
-          kodeTp: item.kodeTp || '',
-          unitTopik: item.unitTopik || '',
-          jejakTurunanCp: item.jejakTurunanCp || '',
-          rumusanTp: item.rumusanTp || '',
-          asesmen: item.asesmen || '',
-          jp: item.jp ? String(item.jp) : ''
-        }));
+        try {
+          const parsedData = JSON.parse(jsonStr);
+
+          if (Array.isArray(parsedData)) {
+            newItems = parsedData.map((item: any, index: number) => ({
+              id: (Date.now() + index).toString(),
+              subjectId: importSubjectId,
+              kodeTp: item.kodeTp || '',
+              unitTopik: item.unitTopik || '',
+              jejakTurunanCp: item.jejakTurunanCp || '',
+              rumusanTp: item.rumusanTp || '',
+              asesmen: item.asesmen || '',
+              jp: item.jp ? String(item.jp) : ''
+            }));
+          } else {
+             console.warn("Parsed data is not an array:", parsedData);
+             // Handle single object case if AI returns just one object instead of array
+             if (typeof parsedData === 'object' && parsedData !== null) {
+                newItems = [{
+                  id: Date.now().toString(),
+                  subjectId: importSubjectId,
+                  kodeTp: parsedData.kodeTp || '',
+                  unitTopik: parsedData.unitTopik || '',
+                  jejakTurunanCp: parsedData.jejakTurunanCp || '',
+                  rumusanTp: parsedData.rumusanTp || '',
+                  asesmen: parsedData.asesmen || '',
+                  jp: parsedData.jp ? String(parsedData.jp) : ''
+                }];
+             }
+          }
+        } catch (parseError) {
+          console.error("JSON Parse Error:", parseError);
+          console.log("Raw Text:", text);
+          throw new Error("Gagal memproses format data dari AI. Silakan coba lagi.");
+        }
       }
 
       // Save to storage
