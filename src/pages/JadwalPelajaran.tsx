@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { GoogleGenAI, Type } from '@google/genai';
 import { getStorageKey } from '../utils/academic';
+import { clsx } from 'clsx';
 
 interface ScheduleRow {
   time: string;
@@ -192,30 +193,48 @@ const JadwalPelajaran: React.FC = () => {
         </button>
       </div>
 
-      <div className="overflow-x-auto bg-white rounded-xl shadow-sm dark:bg-gray-800">
-        <table className="w-full text-sm text-left">
-          <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+      <div className="overflow-x-auto bg-white rounded-2xl shadow-sm border border-gray-100 dark:bg-gray-800 dark:border-gray-700">
+        <table className="w-full text-sm text-left border-collapse">
+          <thead className="text-xs text-white uppercase bg-gray-900 dark:bg-gray-900">
             <tr>
-              <th className="px-6 py-3">Waktu</th>
-              <th className="px-6 py-3">Senin</th>
-              <th className="px-6 py-3">Selasa</th>
-              <th className="px-6 py-3">Rabu</th>
-              <th className="px-6 py-3">Kamis</th>
-              <th className="px-6 py-3">Jumat</th>
-              <th className="px-6 py-3">Aksi</th>
+              <th className="px-6 py-4 font-bold tracking-wider border-r border-gray-800">Waktu</th>
+              <th className="px-6 py-4 font-bold tracking-wider border-r border-gray-800">Senin</th>
+              <th className="px-6 py-4 font-bold tracking-wider border-r border-gray-800">Selasa</th>
+              <th className="px-6 py-4 font-bold tracking-wider border-r border-gray-800">Rabu</th>
+              <th className="px-6 py-4 font-bold tracking-wider border-r border-gray-800">Kamis</th>
+              <th className="px-6 py-4 font-bold tracking-wider border-r border-gray-800">Jumat</th>
+              <th className="px-6 py-4 font-bold tracking-wider text-right">Aksi</th>
             </tr>
           </thead>
           <tbody>
             {schedule.map((row, index) => (
-              <tr key={index} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{row.time}</td>
-                <td className="px-6 py-4">{row.monday}</td>
-                <td className="px-6 py-4">{row.tuesday}</td>
-                <td className="px-6 py-4">{row.wednesday}</td>
-                <td className="px-6 py-4">{row.thursday}</td>
-                <td className="px-6 py-4">{row.friday}</td>
+              <tr key={index} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
+                <td className="px-6 py-4 font-bold text-gray-900 bg-gray-50/50 dark:bg-gray-900/20 dark:text-white border-r border-gray-100 dark:border-gray-700 w-32">
+                  {row.time}
+                </td>
+                {(['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] as const).map((day) => {
+                  const content = row[day];
+                  const isBreak = content.toLowerCase().includes('istirahat') || content.toLowerCase().includes('sholat');
+                  
+                  return (
+                    <td key={day} className="px-4 py-3 border-r border-gray-100 dark:border-gray-700 min-w-[160px]">
+                      {content ? (
+                        <div className={clsx(
+                          "px-3 py-2 rounded-lg text-xs font-bold shadow-sm",
+                          isBreak 
+                            ? "bg-amber-100 text-amber-800 border border-amber-200" 
+                            : "bg-blue-600 text-white border border-blue-700"
+                        )}>
+                          {content}
+                        </div>
+                      ) : (
+                        <span className="text-gray-300 dark:text-gray-600 italic text-xs">-</span>
+                      )}
+                    </td>
+                  );
+                })}
                 <td className="px-6 py-4 text-right">
-                  <button onClick={() => handleEditClick(row, index)} className="p-1.5 text-orange-600 rounded-lg hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20 transition-colors" title="Edit">
+                  <button onClick={() => handleEditClick(row, index)} className="p-2 text-orange-600 rounded-xl hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20 transition-all" title="Edit">
                     <span className="text-xl material-symbols-outlined">edit</span>
                   </button>
                 </td>
