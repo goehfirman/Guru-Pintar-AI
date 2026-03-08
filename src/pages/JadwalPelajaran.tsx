@@ -66,9 +66,9 @@ const JadwalPelajaran: React.FC = () => {
     setImportError(null);
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = localStorage.getItem('gemini_api_key') || process.env.GEMINI_API_KEY;
       if (!apiKey) {
-        throw new Error('API Key Gemini tidak ditemukan. Pastikan sudah diatur di environment variable.');
+        throw new Error('API Key Gemini tidak ditemukan. Pastikan sudah diatur di Dashboard atau environment variable.');
       }
 
       const ai = new GoogleGenAI({ apiKey });
@@ -121,7 +121,7 @@ const JadwalPelajaran: React.FC = () => {
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-2.0-flash-exp',
         contents: { parts: promptContent },
         config: {
           responseMimeType: 'application/json',
