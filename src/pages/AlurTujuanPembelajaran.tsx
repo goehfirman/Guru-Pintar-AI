@@ -131,19 +131,51 @@ const AlurTujuanPembelajaran: React.FC = () => {
     setSelectedItems(new Set());
   };
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // ... existing code ...
+
+  const handleEdit = (item: ATPItem) => {
+    setEditingId(item.id);
+    setFormData({
+      kodeTp: item.kodeTp,
+      unitTopik: item.unitTopik,
+      jejakTurunanCp: item.jejakTurunanCp,
+      rumusanTp: item.rumusanTp,
+      asesmen: item.asesmen,
+      jp: item.jp
+    });
+    setIsModalOpen(true);
+  };
+
   const handleSave = () => {
     if (!selectedSubjectId) return;
     
-    const newItem: ATPItem = {
-      id: Date.now().toString(),
-      subjectId: selectedSubjectId,
-      ...formData
-    };
+    let newData: ATPItem[];
 
-    const newData = [...atpData, newItem];
+    if (editingId) {
+      // Update existing item
+      newData = atpData.map(item => 
+        item.id === editingId 
+          ? { ...item, ...formData }
+          : item
+      );
+    } else {
+      // Add new item
+      const newItem: ATPItem = {
+        id: Date.now().toString(),
+        subjectId: selectedSubjectId,
+        ...formData
+      };
+      newData = [...atpData, newItem];
+    }
+
     setAtpData(newData);
     localStorage.setItem(getStorageKey(`guru_atp_${selectedSubjectId}`), JSON.stringify(newData));
+    
+    // Reset state
     setIsModalOpen(false);
+    setEditingId(null);
     setFormData({
       kodeTp: '',
       unitTopik: '',
@@ -153,6 +185,21 @@ const AlurTujuanPembelajaran: React.FC = () => {
       jp: ''
     });
   };
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isModalOpen) {
+      setEditingId(null);
+      setFormData({
+        kodeTp: '',
+        unitTopik: '',
+        jejakTurunanCp: '',
+        rumusanTp: '',
+        asesmen: '',
+        jp: ''
+      });
+    }
+  }, [isModalOpen]);
 
   const handleSmartImport = async () => {
     if (!importSubjectId || !importFile) return;
@@ -448,12 +495,22 @@ const AlurTujuanPembelajaran: React.FC = () => {
                     <td className="px-6 py-4">{item.asesmen}</td>
                     <td className="px-6 py-4">{item.jp} JP</td>
                     <td className="px-6 py-4 text-right">
-                      <button 
-                        onClick={() => handleDelete(item.id)}
-                        className="p-1.5 text-red-600 rounded-lg hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
-                      >
-                        <span className="text-xl material-symbols-outlined">delete</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button 
+                          onClick={() => handleEdit(item)}
+                          className="p-1.5 text-blue-600 rounded-lg hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
+                          title="Edit"
+                        >
+                          <span className="text-xl material-symbols-outlined">edit</span>
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(item.id)}
+                          className="p-1.5 text-red-600 rounded-lg hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-colors"
+                          title="Hapus"
+                        >
+                          <span className="text-xl material-symbols-outlined">delete</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -549,7 +606,9 @@ const AlurTujuanPembelajaran: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="w-full max-w-2xl p-6 bg-white rounded-2xl shadow-xl dark:bg-gray-800 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Tambah ATP</h3>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                {editingId ? 'Edit ATP' : 'Tambah ATP'}
+              </h3>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                 <span className="material-symbols-outlined">close</span>
               </button>
