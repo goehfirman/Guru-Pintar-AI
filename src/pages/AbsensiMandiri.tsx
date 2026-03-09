@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { Html5Qrcode } from 'html5-qrcode';
 import io from 'socket.io-client';
 import { getStorageKey } from '../utils/academic';
 
@@ -11,9 +11,10 @@ const AbsensiMandiri: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [recentAttendance, setRecentAttendance] = useState<any[]>([]);
+  const [isCameraStarted, setIsCameraStarted] = useState(false);
   
   const socketRef = useRef<any>(null);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
   useEffect(() => {
     // Load students and classes
@@ -33,25 +34,52 @@ const AbsensiMandiri: React.FC = () => {
     // Initialize socket
     socketRef.current = io();
 
-    // Initialize scanner
-    const scanner = new Html5QrcodeScanner(
-      "reader",
-      { fps: 10, qrbox: { width: 250, height: 250 } },
-      /* verbose= */ false
-    );
-    
-    scanner.render(onScanSuccess, onScanFailure);
-    scannerRef.current = scanner;
-
     return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear().catch(error => console.error("Failed to clear scanner", error));
-      }
+      stopCamera();
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
     };
   }, []);
+
+  const startCamera = async () => {
+    if (html5QrCodeRef.current) return;
+
+    try {
+      const html5QrCode = new Html5Qrcode("reader");
+      html5QrCodeRef.current = html5QrCode;
+      
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+      
+      await html5QrCode.start(
+        { facingMode: "user" }, // or "environment"
+        config,
+        onScanSuccess,
+        onScanFailure
+      );
+      
+      setIsCameraStarted(true);
+      setStatus('scanning');
+    } catch (err) {
+      console.error("Unable to start camera", err);
+      setErrorMessage("Gagal menyalakan kamera. Pastikan izin kamera telah diberikan.");
+      setStatus('error');
+    }
+  };
+
+  const stopCamera = async () => {
+    if (html5QrCodeRef.current) {
+      try {
+        if (html5QrCodeRef.current.isScanning) {
+          await html5QrCodeRef.current.stop();
+        }
+        html5QrCodeRef.current = null;
+        setIsCameraStarted(false);
+      } catch (err) {
+        console.error("Unable to stop camera", err);
+      }
+    }
+  };
 
   function onScanSuccess(decodedText: string) {
     try {
@@ -60,7 +88,6 @@ const AbsensiMandiri: React.FC = () => {
         processAttendance(data);
       }
     } catch (e) {
-      // If not JSON, maybe it's just the NISN/ID
       const student = allStudents.find(s => s.nisn === decodedText || s.id === decodedText);
       if (student) {
         processAttendance({ type: 'student_id', id: student.id, nisn: student.nisn, name: student.name });
@@ -68,21 +95,21 @@ const AbsensiMandiri: React.FC = () => {
     }
   }
 
+  function onScanFailure(error: any) {}
+
   const processAttendance = (studentData: any) => {
     if (status === 'submitting') return;
     
     setStatus('submitting');
     
-    // Check if student belongs to selected class
     const student = allStudents.find(s => s.id === studentData.id);
     if (!student || student.class !== selectedClass) {
       setStatus('error');
       setErrorMessage(student ? `Siswa ini terdaftar di kelas ${student.class}, bukan ${selectedClass}.` : 'Data siswa tidak ditemukan.');
-      setTimeout(resetScanner, 3000);
+      setTimeout(() => setStatus('scanning'), 3000);
       return;
     }
 
-    // Send to server
     if (socketRef.current) {
       const attendanceData = {
         studentId: student.id,
@@ -99,17 +126,11 @@ const AbsensiMandiri: React.FC = () => {
       setStatus('success');
       setScanResult(student);
       
-      // Auto reset after 2 seconds to allow next student
-      setTimeout(resetScanner, 2000);
+      setTimeout(() => {
+        setScanResult(null);
+        setStatus('scanning');
+      }, 2000);
     }
-  };
-
-  function onScanFailure(error: any) {}
-
-  const resetScanner = () => {
-    setScanResult(null);
-    setStatus('scanning');
-    setErrorMessage('');
   };
 
   return (
@@ -123,28 +144,56 @@ const AbsensiMandiri: React.FC = () => {
           </div>
 
           <div className="p-6 space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Pilih Kelas Aktif</label>
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-primary outline-none transition-all font-bold"
-              >
-                {availableClasses.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Pilih Kelas</label>
+                <select
+                  value={selectedClass}
+                  onChange={(e) => setSelectedClass(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-primary outline-none transition-all font-bold"
+                >
+                  {availableClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="flex items-end">
+                {!isCameraStarted ? (
+                  <button 
+                    onClick={startCamera}
+                    className="w-full py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">videocam</span>
+                    Mulai Kamera
+                  </button>
+                ) : (
+                  <button 
+                    onClick={stopCamera}
+                    className="w-full py-2 bg-red-100 text-red-600 text-sm font-bold rounded-xl hover:bg-red-200 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">videocam_off</span>
+                    Stop Kamera
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="relative">
-              <div id="reader" className="overflow-hidden rounded-2xl border-2 border-primary/20 dark:border-primary/10"></div>
+            <div className="relative aspect-square bg-gray-100 dark:bg-gray-900 rounded-2xl overflow-hidden border-2 border-primary/20">
+              <div id="reader" className="w-full h-full"></div>
               
+              {!isCameraStarted && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-6 text-center">
+                  <span className="material-symbols-outlined text-5xl mb-2">photo_camera</span>
+                  <p className="text-sm">Klik tombol "Mulai Kamera" untuk memulai pemindaian</p>
+                </div>
+              )}
+
               {status === 'submitting' && (
-                <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-2xl">
+                <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm flex items-center justify-center z-10">
                   <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                 </div>
               )}
 
               {status === 'success' && scanResult && (
-                <div className="absolute inset-0 bg-green-500/90 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-2xl text-white animate-in zoom-in duration-300">
+                <div className="absolute inset-0 bg-green-500/90 backdrop-blur-sm flex flex-col items-center justify-center z-20 text-white animate-in zoom-in duration-300">
                   <span className="material-symbols-outlined text-6xl mb-2">check_circle</span>
                   <div className="text-xl font-bold">{scanResult.name}</div>
                   <div className="text-sm opacity-90">Berhasil Absen!</div>
@@ -152,9 +201,15 @@ const AbsensiMandiri: React.FC = () => {
               )}
 
               {status === 'error' && (
-                <div className="absolute inset-0 bg-red-500/90 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-2xl text-white animate-in shake duration-300">
+                <div className="absolute inset-0 bg-red-500/90 backdrop-blur-sm flex flex-col items-center justify-center z-20 text-white animate-in shake duration-300">
                   <span className="material-symbols-outlined text-6xl mb-2">error</span>
                   <div className="px-6 text-center text-sm font-medium">{errorMessage}</div>
+                  <button 
+                    onClick={() => setStatus('scanning')}
+                    className="mt-4 px-4 py-1 bg-white/20 rounded-lg text-xs hover:bg-white/30"
+                  >
+                    Coba Lagi
+                  </button>
                 </div>
               )}
             </div>
@@ -171,7 +226,7 @@ const AbsensiMandiri: React.FC = () => {
             <p className="text-xs text-gray-500 dark:text-gray-400">Daftar siswa yang baru saja melakukan absen</p>
           </div>
 
-          <div className="flex-1 p-6">
+          <div className="flex-1 p-6 overflow-y-auto max-h-[400px]">
             {recentAttendance.length > 0 ? (
               <div className="space-y-4">
                 {recentAttendance.map((item, idx) => (
