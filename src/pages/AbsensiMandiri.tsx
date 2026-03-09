@@ -183,6 +183,16 @@ const AbsensiMandiri: React.FC = () => {
     setStatus('success');
     setScanResult(student);
     
+    // Announce attendance via Text-to-Speech
+    if ('speechSynthesis' in window) {
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(`${student.name} Hadir!`);
+      utterance.lang = 'id-ID';
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+    
     setTimeout(() => {
       setScanResult(null);
       setStatus('scanning');
