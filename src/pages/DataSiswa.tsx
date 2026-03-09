@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { getStorageKey } from '../utils/academic';
+import { getUserProfile } from '../utils/userProfile';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const initialStudents: any[] = [];
 
@@ -95,6 +98,52 @@ const DataSiswa: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportPdf = () => {
+    const doc = new jsPDF();
+    const profile = getUserProfile();
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    doc.setFontSize(16);
+    doc.text(`Data Siswa - ${selectedClass}`, 105, 15, { align: 'center' });
+
+    autoTable(doc, {
+      startY: 25,
+      head: [['No', 'NISN', 'Nama Lengkap', 'Kelas', 'L/P', 'Status']],
+      body: filteredStudents.map((s, i) => [i + 1, s.nisn, s.name, s.class, s.gender, s.status]),
+      headStyles: { fillColor: [30, 63, 174] }
+    });
+
+    // @ts-ignore
+    let finalY = doc.lastAutoTable.finalY + 20;
+    
+    if (finalY > 240) {
+      doc.addPage();
+      finalY = 20;
+    }
+
+    const signatureX = 140;
+    doc.setFontSize(10);
+    doc.text(`${profile.birthPlace || 'Jakarta'}, ${formattedDate}`, signatureX, finalY);
+    doc.text(`Guru Kelas,`, signatureX, finalY + 5);
+    
+    if (profile.signatureUrl) {
+      try {
+        doc.addImage(profile.signatureUrl, 'PNG', signatureX, finalY + 10, 40, 20);
+      } catch (e) {
+        console.error('Error adding signature to PDF', e);
+      }
+    }
+    
+    const nameY = profile.signatureUrl ? finalY + 35 : finalY + 30;
+    doc.setFont(undefined, 'bold');
+    doc.text(profile.fullName, signatureX, nameY);
+    doc.setFont(undefined, 'normal');
+    doc.text(`NIP. ${profile.nip}`, signatureX, nameY + 5);
+
+    doc.save(`Data_Siswa_${selectedClass}.pdf`);
   };
 
   const handleImportClick = () => {
@@ -267,11 +316,19 @@ const DataSiswa: React.FC = () => {
           </button>
           
           <button 
+            onClick={handleExportPdf}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-200 rounded-lg dark:bg-sidebar-dark dark:border-border-dark dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <span className="material-symbols-outlined">picture_as_pdf</span>
+            PDF
+          </button>
+          
+          <button 
             onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-200 rounded-lg dark:bg-sidebar-dark dark:border-border-dark dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
             <span className="material-symbols-outlined">download</span>
-            Export
+            Excel
           </button>
           
           <button 

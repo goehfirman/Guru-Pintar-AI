@@ -18,6 +18,21 @@ const ProfilSaya: React.FC = () => {
     }));
   };
 
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const base64 = evt.target?.result as string;
+        setProfile(prev => ({
+          ...prev,
+          signatureUrl: base64
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = () => {
     saveUserProfile(profile);
     setShowSaveNotification(true);
@@ -62,6 +77,48 @@ const ProfilSaya: React.FC = () => {
                 <span className="text-sm material-symbols-outlined">verified</span>
                 Akun Terverifikasi
               </div>
+            </div>
+          </div>
+
+          <div className="p-6 bg-white border border-gray-100 rounded-2xl shadow-sm dark:bg-sidebar-dark dark:border-border-dark">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Tanda Tangan Digital</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
+              Upload tanda tangan Anda untuk disematkan secara otomatis pada dokumen PDF yang diunduh.
+            </p>
+            
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-full h-32 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 overflow-hidden">
+                {profile.signatureUrl ? (
+                  <img src={profile.signatureUrl} alt="Signature" className="max-h-full object-contain" />
+                ) : (
+                  <div className="text-center text-gray-400">
+                    <span className="material-symbols-outlined text-3xl mb-1">signature</span>
+                    <p className="text-xs">Belum ada tanda tangan</p>
+                  </div>
+                )}
+              </div>
+              
+              <label className="w-full">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleSignatureUpload}
+                  className="hidden" 
+                />
+                <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400">
+                  <span className="material-symbols-outlined text-sm">upload</span>
+                  {profile.signatureUrl ? 'Ganti Tanda Tangan' : 'Upload Tanda Tangan'}
+                </div>
+              </label>
+              
+              {profile.signatureUrl && (
+                <button 
+                  onClick={() => setProfile(prev => ({ ...prev, signatureUrl: '' }))}
+                  className="text-xs text-red-600 hover:text-red-700 font-medium"
+                >
+                  Hapus Tanda Tangan
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -2,7 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { GoogleGenAI, Type } from '@google/genai';
 import { getStorageKey } from '../utils/academic';
+import { getUserProfile } from '../utils/userProfile';
 import { clsx } from 'clsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface ScheduleRow {
   time: string;
@@ -183,14 +186,66 @@ const JadwalPelajaran: React.FC = () => {
     }
   };
 
+  const downloadPdf = () => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    const profile = getUserProfile();
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    doc.setFontSize(16);
+    doc.text(`Jadwal Pelajaran`, 148, 15, { align: 'center' });
+
+    autoTable(doc, {
+      startY: 25,
+      head: [['Waktu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat']],
+      body: schedule.map(row => [row.time, row.monday, row.tuesday, row.wednesday, row.thursday, row.friday]),
+      headStyles: { fillColor: [30, 63, 174] }
+    });
+
+    // @ts-ignore
+    let finalY = doc.lastAutoTable.finalY + 20;
+    
+    if (finalY > 160) {
+      doc.addPage();
+      finalY = 20;
+    }
+
+    const signatureX = 210;
+    doc.setFontSize(10);
+    doc.text(`${profile.birthPlace || 'Jakarta'}, ${formattedDate}`, signatureX, finalY);
+    doc.text(`Guru Mata Pelajaran,`, signatureX, finalY + 5);
+    
+    if (profile.signatureUrl) {
+      try {
+        doc.addImage(profile.signatureUrl, 'PNG', signatureX, finalY + 10, 40, 20);
+      } catch (e) {
+        console.error('Error adding signature to PDF', e);
+      }
+    }
+    
+    const nameY = profile.signatureUrl ? finalY + 35 : finalY + 30;
+    doc.setFont(undefined, 'bold');
+    doc.text(profile.fullName, signatureX, nameY);
+    doc.setFont(undefined, 'normal');
+    doc.text(`NIP. ${profile.nip}`, signatureX, nameY + 5);
+
+    doc.save(`Jadwal_Pelajaran.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Jadwal Pelajaran</h2>
-        <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg bg-primary hover:bg-blue-700">
-          <span className="material-symbols-outlined text-sm">auto_awesome</span>
-          Import Pintar
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={downloadPdf} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 dark:bg-sidebar-dark dark:border-border-dark dark:text-gray-300 dark:hover:bg-gray-800">
+            <span className="material-symbols-outlined text-sm">picture_as_pdf</span>
+            Cetak PDF
+          </button>
+          <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg bg-primary hover:bg-blue-700">
+            <span className="material-symbols-outlined text-sm">auto_awesome</span>
+            Import Pintar
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto bg-white rounded-2xl shadow-sm border border-gray-100 dark:bg-gray-800 dark:border-gray-700">

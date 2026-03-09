@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { getStorageKey } from '../utils/academic';
+import { getUserProfile } from '../utils/userProfile';
 import { GoogleGenAI } from "@google/genai";
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface SubjectItem {
   id: string;
@@ -388,6 +391,57 @@ const AlurTujuanPembelajaran: React.FC = () => {
     }
   };
 
+  const downloadPdf = () => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    const profile = getUserProfile();
+    const subject = subjects.find(s => s.id === selectedSubjectId);
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    doc.setFontSize(16);
+    doc.text(`Alur Tujuan Pembelajaran (ATP)`, 148, 15, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text(`Mata Pelajaran: ${subject?.name || '-'}`, 148, 22, { align: 'center' });
+
+    autoTable(doc, {
+      startY: 30,
+      head: [['Kode TP', 'Unit / Topik', 'Jejak Turunan CP', 'Rumusan TP', 'Asesmen', 'JP']],
+      body: atpData.map(item => [item.kodeTp, item.unitTopik, item.jejakTurunanCp, item.rumusanTp, item.asesmen, item.jp + ' JP']),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [30, 63, 174] }
+    });
+
+    // @ts-ignore
+    let finalY = doc.lastAutoTable.finalY + 20;
+    
+    // Check if enough space for signature, otherwise add page
+    if (finalY > 160) {
+      doc.addPage();
+      finalY = 20;
+    }
+
+    const signatureX = 210;
+    doc.setFontSize(10);
+    doc.text(`${profile.birthPlace || 'Jakarta'}, ${formattedDate}`, signatureX, finalY);
+    doc.text(`Guru Mata Pelajaran,`, signatureX, finalY + 5);
+    
+    if (profile.signatureUrl) {
+      try {
+        doc.addImage(profile.signatureUrl, 'PNG', signatureX, finalY + 10, 40, 20);
+      } catch (e) {
+        console.error('Error adding signature to PDF', e);
+      }
+    }
+    
+    const nameY = profile.signatureUrl ? finalY + 35 : finalY + 30;
+    doc.setFont(undefined, 'bold');
+    doc.text(profile.fullName, signatureX, nameY);
+    doc.setFont(undefined, 'normal');
+    doc.text(`NIP. ${profile.nip}`, signatureX, nameY + 5);
+
+    doc.save(`ATP_${subject?.name || 'MataPelajaran'}.pdf`);
+  };
+
   const handleDelete = (id: string) => {
     if (!window.confirm('Apakah Anda yakin ingin menghapus data ini?')) return;
     
@@ -450,6 +504,18 @@ const AlurTujuanPembelajaran: React.FC = () => {
           >
             <span className="material-symbols-outlined">delete</span>
             {selectedItems.size > 0 ? `Hapus (${selectedItems.size})` : 'Hapus'}
+          </button>
+          <button
+            onClick={downloadPdf}
+            disabled={atpData.length === 0}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors rounded-lg ${
+              atpData.length > 0 
+                ? 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-sidebar-dark dark:text-gray-300 dark:border-border-dark dark:hover:bg-gray-800' 
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600'
+            }`}
+          >
+            <span className="material-symbols-outlined">picture_as_pdf</span>
+            Cetak PDF
           </button>
           <button
             onClick={() => setIsImportModalOpen(true)}

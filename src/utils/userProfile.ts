@@ -13,6 +13,7 @@ export interface UserProfile {
   email: string;
   phone: string;
   avatarUrl: string;
+  signatureUrl?: string;
 }
 
 export const defaultProfile: UserProfile = {
@@ -29,7 +30,8 @@ export const defaultProfile: UserProfile = {
   additionalTask: 'Wali Kelas X IPA 1',
   email: 'andi.setiawan@sekolah.sch.id',
   phone: '+62 812-3456-7890',
-  avatarUrl: 'https://ui-avatars.com/api/?name=Andi+Setiawan&background=1e3fae&color=fff&size=128'
+  avatarUrl: 'https://ui-avatars.com/api/?name=Andi+Setiawan&background=1e3fae&color=fff&size=128',
+  signatureUrl: ''
 };
 
 const STORAGE_KEY = 'user_profile_data';

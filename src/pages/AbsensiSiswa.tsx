@@ -1,36 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { getStorageKey } from '../utils/academic';
 
-const initialStudents = [
-  { id: '1001', name: 'Ahmad Fauzi', status: 'Hadir', class: 'X IPA 1' },
-  { id: '1002', name: 'Budi Santoso', status: 'Hadir', class: 'X IPA 1' },
-  { id: '1003', name: 'Citra Lestari', status: 'Sakit', class: 'X IPA 1' },
-  { id: '1004', name: 'Dewi Ayu', status: 'Hadir', class: 'X IPA 1' },
-  { id: '1005', name: 'Eko Prasetyo', status: 'Izin', class: 'X IPA 1' },
-  { id: '1006', name: 'Fina Melati', status: 'Hadir', class: 'X IPA 2' },
-  { id: '1007', name: 'Gilang Ramadhan', status: 'Alpa', class: 'X IPA 2' },
-];
-
 const AbsensiSiswa: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState('X IPA 1');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedSubject, setSelectedSubject] = useState('');
   
   const [availableClasses, setAvailableClasses] = useState<string[]>(['X IPA 1', 'X IPA 2', 'XI IPA 1', 'XI IPA 2']);
-  const [availableSubjects, setAvailableSubjects] = useState<string[]>([
-    'Pendidikan Agama Islam', 
-    'Pendidikan Pancasila', 
-    'Bahasa Indonesia', 
-    'Matematika', 
-    'IPAS', 
-    'PJOK', 
-    'Seni Budaya', 
-    'Bahasa Inggris', 
-    'PLBJ', 
-    'Koding dan Kecerdasan Artifisial'
-  ]);
   
-  const [allStudents, setAllStudents] = useState<any[]>(initialStudents);
+  const [allStudents, setAllStudents] = useState<any[]>([]);
   const [attendanceData, setAttendanceData] = useState<Record<string, any>>({});
 
   const loadData = () => {
@@ -49,30 +26,17 @@ const AbsensiSiswa: React.FC = () => {
       } catch (e) {}
     }
 
-    // Load Subjects
-    const savedSubjects = localStorage.getItem(getStorageKey('guru_subjects'));
-    if (savedSubjects) {
-      try {
-        const parsedSubjects = JSON.parse(savedSubjects);
-        if (parsedSubjects.length > 0) {
-          const subjectNames = parsedSubjects.map((s: any) => s.name);
-          setAvailableSubjects(subjectNames);
-          if (!subjectNames.includes(selectedSubject)) {
-            setSelectedSubject(subjectNames[0]);
-          }
-        }
-      } catch (e) {}
-    }
-
     // Load Students
     const savedStudents = localStorage.getItem(getStorageKey('guru_students'));
     if (savedStudents) {
       try {
         const parsedStudents = JSON.parse(savedStudents);
-        if (parsedStudents.length > 0) {
-          setAllStudents(parsedStudents);
-        }
-      } catch (e) {}
+        setAllStudents(parsedStudents || []);
+      } catch (e) {
+        setAllStudents([]);
+      }
+    } else {
+      setAllStudents([]);
     }
 
     // Load Attendance
@@ -91,18 +55,16 @@ const AbsensiSiswa: React.FC = () => {
     window.addEventListener('academicSettingsUpdated', loadData);
     window.addEventListener('classesUpdated', loadData);
     window.addEventListener('studentsUpdated', loadData);
-    window.addEventListener('subjectsUpdated', loadData);
     return () => {
       window.removeEventListener('academicSettingsUpdated', loadData);
       window.removeEventListener('classesUpdated', loadData);
       window.removeEventListener('studentsUpdated', loadData);
-      window.removeEventListener('subjectsUpdated', loadData);
     };
   }, []);
 
   const currentStudents = allStudents.filter(s => s.class === selectedClass && s.status === 'Aktif');
   
-  const getAttendanceKey = () => `${selectedDate}_${selectedClass}_${selectedSubject}`;
+  const getAttendanceKey = () => `${selectedDate}_${selectedClass}`;
   
   const currentAttendance = attendanceData[getAttendanceKey()] || {};
 
@@ -192,13 +154,6 @@ const AbsensiSiswa: React.FC = () => {
               onChange={(e) => setSelectedDate(e.target.value)}
               className="py-2 px-4 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:focus:bg-gray-900 transition-colors"
             />
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="py-2 pl-3 pr-8 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:focus:bg-gray-900 transition-colors"
-            >
-              {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
           </div>
           
           <div className="flex items-center gap-4 text-sm">

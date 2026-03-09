@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getStorageKey } from '../utils/academic';
+import { getUserProfile } from '../utils/userProfile';
 import * as XLSX from 'xlsx';
 import { GoogleGenAI, Type } from '@google/genai';
 import jsPDF from 'jspdf';
@@ -202,17 +203,46 @@ const ProgramTahunan: React.FC = () => {
 
   const downloadPdf = () => {
     const doc = new jsPDF();
+    const profile = getUserProfile();
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    
     doc.text("Program Tahunan (PROTA) dan Program Semester (PROMES)", 105, 10, { align: 'center' });
     const pengesahan = generatedData.pengesahan;
     doc.setFontSize(10);
     doc.text(`Mata Pelajaran: ${pengesahan.mataPelajaran}`, 20, 20);
     doc.text(`Fase/Kelas: ${pengesahan.faseKelas}`, 20, 25);
     doc.text(`Tahun Pelajaran: ${pengesahan.tahunPelajaran}`, 20, 30);
+    
     autoTable(doc, {
       startY: 40,
       head: [['No', 'Tujuan Pembelajaran', 'Unit/Topik', 'Submateri', 'Alokasi JP', 'Bulan', 'Semester']],
       body: generatedData.prota.map((item: any) => [item.no, item.tujuanPembelajaran, item.unitTopik, item.submateri, item.alokasiJp, item.bulan, item.semester]),
     });
+
+    // @ts-ignore
+    const finalY = doc.lastAutoTable.finalY + 20;
+    
+    // Signature Block
+    const signatureX = 140;
+    doc.setFontSize(10);
+    doc.text(`${profile.birthPlace || 'Jakarta'}, ${formattedDate}`, signatureX, finalY);
+    doc.text(`Guru Mata Pelajaran,`, signatureX, finalY + 5);
+    
+    if (profile.signatureUrl) {
+      try {
+        doc.addImage(profile.signatureUrl, 'PNG', signatureX, finalY + 10, 40, 20);
+      } catch (e) {
+        console.error('Error adding signature to PDF', e);
+      }
+    }
+    
+    const nameY = profile.signatureUrl ? finalY + 35 : finalY + 30;
+    doc.setFont(undefined, 'bold');
+    doc.text(profile.fullName, signatureX, nameY);
+    doc.setFont(undefined, 'normal');
+    doc.text(`NIP. ${profile.nip}`, signatureX, nameY + 5);
+    
     doc.save('prota_promes.pdf');
   };
 
