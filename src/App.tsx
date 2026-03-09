@@ -22,6 +22,7 @@ import KirimKepalaSekolah from './pages/KirimKepalaSekolah';
 import ProgramTahunan from './pages/ProgramTahunan';
 import PlaceholderPage from './pages/PlaceholderPage';
 import AlurTujuanPembelajaran from './pages/AlurTujuanPembelajaran';
+import AbsensiMandiri from './pages/AbsensiMandiri';
 
 function App() {
   return (
@@ -50,6 +51,7 @@ function App() {
           <Route path="cetak-laporan" element={<CetakLaporan />} />
           <Route path="kirim-kepsek" element={<KirimKepalaSekolah />} />
         </Route>
+        <Route path="/absensi-mandiri" element={<AbsensiMandiri />} />
       </Routes>
     </HashRouter>
   );

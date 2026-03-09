@@ -1,0 +1,217 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
+import io from 'socket.io-client';
+import { getStorageKey } from '../utils/academic';
+
+const AbsensiMandiri: React.FC = () => {
+  const [selectedClass, setSelectedClass] = useState('X IPA 1');
+  const [availableClasses, setAvailableClasses] = useState<string[]>(['X IPA 1', 'X IPA 2', 'XI IPA 1', 'XI IPA 2']);
+  const [scanResult, setScanResult] = useState<any>(null);
+  const [status, setStatus] = useState<'idle' | 'scanning' | 'submitting' | 'success' | 'error'>('scanning');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [allStudents, setAllStudents] = useState<any[]>([]);
+  const [recentAttendance, setRecentAttendance] = useState<any[]>([]);
+  
+  const socketRef = useRef<any>(null);
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+
+  useEffect(() => {
+    // Load students and classes
+    const savedStudents = localStorage.getItem(getStorageKey('guru_students'));
+    if (savedStudents) {
+      try {
+        const students = JSON.parse(savedStudents);
+        setAllStudents(students);
+        const classes = Array.from(new Set(students.map((s: any) => s.class))).filter(Boolean) as string[];
+        if (classes.length > 0) {
+          setAvailableClasses(classes);
+          setSelectedClass(classes[0]);
+        }
+      } catch (e) {}
+    }
+
+    // Initialize socket
+    socketRef.current = io();
+
+    // Initialize scanner
+    const scanner = new Html5QrcodeScanner(
+      "reader",
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      /* verbose= */ false
+    );
+    
+    scanner.render(onScanSuccess, onScanFailure);
+    scannerRef.current = scanner;
+
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear().catch(error => console.error("Failed to clear scanner", error));
+      }
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  function onScanSuccess(decodedText: string) {
+    try {
+      const data = JSON.parse(decodedText);
+      if (data.type === 'student_id') {
+        processAttendance(data);
+      }
+    } catch (e) {
+      // If not JSON, maybe it's just the NISN/ID
+      const student = allStudents.find(s => s.nisn === decodedText || s.id === decodedText);
+      if (student) {
+        processAttendance({ type: 'student_id', id: student.id, nisn: student.nisn, name: student.name });
+      }
+    }
+  }
+
+  const processAttendance = (studentData: any) => {
+    if (status === 'submitting') return;
+    
+    setStatus('submitting');
+    
+    // Check if student belongs to selected class
+    const student = allStudents.find(s => s.id === studentData.id);
+    if (!student || student.class !== selectedClass) {
+      setStatus('error');
+      setErrorMessage(student ? `Siswa ini terdaftar di kelas ${student.class}, bukan ${selectedClass}.` : 'Data siswa tidak ditemukan.');
+      setTimeout(resetScanner, 3000);
+      return;
+    }
+
+    // Send to server
+    if (socketRef.current) {
+      const attendanceData = {
+        studentId: student.id,
+        studentName: student.name,
+        class: selectedClass,
+        date: new Date().toISOString().split('T')[0],
+        status: 'Hadir',
+        timestamp: new Date().toISOString()
+      };
+
+      socketRef.current.emit('student:attendance', attendanceData);
+      
+      setRecentAttendance(prev => [attendanceData, ...prev].slice(0, 5));
+      setStatus('success');
+      setScanResult(student);
+      
+      // Auto reset after 2 seconds to allow next student
+      setTimeout(resetScanner, 2000);
+    }
+  };
+
+  function onScanFailure(error: any) {}
+
+  const resetScanner = () => {
+    setScanResult(null);
+    setStatus('scanning');
+    setErrorMessage('');
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left Side: Scanner */}
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700">
+          <div className="p-6 bg-primary text-white text-center">
+            <h1 className="text-xl font-bold">Kios Absensi Mandiri</h1>
+            <p className="text-sm opacity-80">Tunjukkan Kartu Siswa ke Kamera</p>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Pilih Kelas Aktif</label>
+              <select
+                value={selectedClass}
+                onChange={(e) => setSelectedClass(e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-primary outline-none transition-all font-bold"
+              >
+                {availableClasses.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            <div className="relative">
+              <div id="reader" className="overflow-hidden rounded-2xl border-2 border-primary/20 dark:border-primary/10"></div>
+              
+              {status === 'submitting' && (
+                <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-2xl">
+                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+
+              {status === 'success' && scanResult && (
+                <div className="absolute inset-0 bg-green-500/90 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-2xl text-white animate-in zoom-in duration-300">
+                  <span className="material-symbols-outlined text-6xl mb-2">check_circle</span>
+                  <div className="text-xl font-bold">{scanResult.name}</div>
+                  <div className="text-sm opacity-90">Berhasil Absen!</div>
+                </div>
+              )}
+
+              {status === 'error' && (
+                <div className="absolute inset-0 bg-red-500/90 backdrop-blur-sm flex flex-col items-center justify-center z-20 rounded-2xl text-white animate-in shake duration-300">
+                  <span className="material-symbols-outlined text-6xl mb-2">error</span>
+                  <div className="px-6 text-center text-sm font-medium">{errorMessage}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Recent Activity */}
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 flex flex-col">
+          <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">history</span>
+              Absensi Terkini
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Daftar siswa yang baru saja melakukan absen</p>
+          </div>
+
+          <div className="flex-1 p-6">
+            {recentAttendance.length > 0 ? (
+              <div className="space-y-4">
+                {recentAttendance.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-2xl animate-in slide-in-from-right-4 duration-500">
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="material-symbols-outlined">person</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-gray-900 dark:text-white truncate">{item.studentName}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {new Date(item.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} • {item.class}
+                      </div>
+                    </div>
+                    <div className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded-full uppercase">Hadir</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-gray-400 space-y-2 opacity-50">
+                <span className="material-symbols-outlined text-5xl">qr_code_scanner</span>
+                <p className="text-sm">Belum ada aktivitas absensi</p>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 bg-gray-50 dark:bg-gray-900/30 text-center border-t border-gray-100 dark:border-gray-700">
+            <div className="text-[10px] text-gray-400 uppercase tracking-widest">Status Sistem</div>
+            <div className="flex items-center justify-center gap-1.5 mt-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-400">Terhubung Real-time</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="mt-8 text-center text-gray-400 text-xs">
+        &copy; 2026 Platform Admin Guru • Kios Absensi Mandiri
+      </div>
+    </div>
+  );
+};
+
+export default AbsensiMandiri;

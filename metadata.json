@@ -1,5 +1,5 @@
 {
   "name": "Platform Admin Guru",
   "description": "",
-  "requestFramePermissions": []
+  "requestFramePermissions": ["camera"]
 }

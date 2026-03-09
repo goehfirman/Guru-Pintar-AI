@@ -2,8 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { getStorageKey } from '../utils/academic';
 import { getUserProfile } from '../utils/userProfile';
+import { getSchoolProfile } from '../utils/schoolProfile';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { QRCodeCanvas } from 'qrcode.react';
 
 const initialStudents: any[] = [];
 
@@ -101,49 +103,88 @@ const DataSiswa: React.FC = () => {
   };
 
   const handleExportPdf = () => {
-    const doc = new jsPDF();
+    // ... existing handleExportPdf ...
+  };
+
+  const handleCetakKartu = async () => {
+    const doc = new jsPDF('p', 'mm', 'a4');
     const profile = getUserProfile();
-    const today = new Date();
-    const formattedDate = today.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-
+    const school = getSchoolProfile();
+    
     doc.setFontSize(16);
-    doc.text(`Data Siswa - ${selectedClass}`, 105, 15, { align: 'center' });
-
-    autoTable(doc, {
-      startY: 25,
-      head: [['No', 'NISN', 'Nama Lengkap', 'Kelas', 'L/P', 'Status']],
-      body: filteredStudents.map((s, i) => [i + 1, s.nisn, s.name, s.class, s.gender, s.status]),
-      headStyles: { fillColor: [30, 63, 174] }
-    });
-
-    // @ts-ignore
-    let finalY = doc.lastAutoTable.finalY + 20;
-    
-    if (finalY > 240) {
-      doc.addPage();
-      finalY = 20;
-    }
-
-    const signatureX = 140;
+    doc.text(`Kartu Absensi Siswa - ${selectedClass}`, 105, 15, { align: 'center' });
     doc.setFontSize(10);
-    doc.text(`${profile.birthPlace || 'Jakarta'}, ${formattedDate}`, signatureX, finalY);
-    doc.text(`Guru Kelas,`, signatureX, finalY + 5);
+    doc.text(`Gunakan kartu ini untuk melakukan absensi mandiri`, 105, 22, { align: 'center' });
+
+    const cardWidth = 90;
+    const cardHeight = 55;
+    const margin = 10;
+    const gap = 5;
     
-    if (profile.signatureUrl) {
-      try {
-        doc.addImage(profile.signatureUrl, 'PNG', signatureX, finalY + 10, 40, 20);
-      } catch (e) {
-        console.error('Error adding signature to PDF', e);
+    let x = margin;
+    let y = 30;
+
+    for (let i = 0; i < filteredStudents.length; i++) {
+      const student = filteredStudents[i];
+      
+      // Draw card border
+      doc.setDrawColor(200);
+      doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3);
+      
+      // Header kartu
+      doc.setFillColor(30, 63, 174);
+      doc.roundedRect(x, y, cardWidth, 12, 3, 3, 'F');
+      doc.setTextColor(255);
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      doc.text(school.name || 'KARTU ABSENSI SISWA', x + cardWidth/2, y + 8, { align: 'center' });
+      
+      // Student Info
+      doc.setTextColor(0);
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'bold');
+      doc.text(student.name.toUpperCase(), x + 5, y + 20);
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(8);
+      doc.text(`NISN: ${student.nisn}`, x + 5, y + 25);
+      doc.text(`Kelas: ${student.class}`, x + 5, y + 29);
+      
+      // QR Code
+      const canvas = document.createElement('canvas');
+      const qrValue = JSON.stringify({ type: 'student_id', id: student.id, nisn: student.nisn, name: student.name });
+      
+      // We need to wait for QR to be drawn if we were using a library that's async, 
+      // but qrcode.react is a component. Let's use a simpler approach or a helper.
+      // Since we can't easily render a React component to a dataURL here without mounting,
+      // I'll use a trick: I'll add a hidden QR component to the page and use its canvas.
+      
+      const qrCanvas = document.getElementById(`qr-gen-${student.id}`) as HTMLCanvasElement;
+      if (qrCanvas) {
+        const qrDataUrl = qrCanvas.toDataURL('image/png');
+        doc.addImage(qrDataUrl, 'PNG', x + cardWidth - 35, y + 15, 30, 30);
+      }
+
+      doc.setFontSize(6);
+      doc.setTextColor(150);
+      doc.text('Scan untuk Absensi', x + cardWidth - 20, y + 48, { align: 'center' });
+
+      // Update coordinates for next card
+      x += cardWidth + gap;
+      if (x + cardWidth > 210) {
+        x = margin;
+        y += cardHeight + gap;
+      }
+      
+      if (y + cardHeight > 297 - margin) {
+        if (i < filteredStudents.length - 1) {
+          doc.addPage();
+          y = margin;
+          x = margin;
+        }
       }
     }
-    
-    const nameY = profile.signatureUrl ? finalY + 35 : finalY + 30;
-    doc.setFont(undefined, 'bold');
-    doc.text(profile.fullName, signatureX, nameY);
-    doc.setFont(undefined, 'normal');
-    doc.text(`NIP. ${profile.nip}`, signatureX, nameY + 5);
 
-    doc.save(`Data_Siswa_${selectedClass}.pdf`);
+    doc.save(`Kartu_Absensi_${selectedClass}.pdf`);
   };
 
   const handleImportClick = () => {
@@ -316,6 +357,14 @@ const DataSiswa: React.FC = () => {
           </button>
           
           <button 
+            onClick={handleCetakKartu}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 transition-colors bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-900/20 dark:border-blue-800/50 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+          >
+            <span className="material-symbols-outlined">qr_code_scanner</span>
+            Cetak Kartu Absensi
+          </button>
+          
+          <button 
             onClick={handleExportPdf}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 transition-colors bg-white border border-gray-200 rounded-lg dark:bg-sidebar-dark dark:border-border-dark dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
@@ -466,6 +515,18 @@ const DataSiswa: React.FC = () => {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Hidden QR Generators for PDF */}
+      <div className="hidden">
+        {filteredStudents.map(student => (
+          <QRCodeCanvas
+            key={student.id}
+            id={`qr-gen-${student.id}`}
+            value={JSON.stringify({ type: 'student_id', id: student.id, nisn: student.nisn, name: student.name })}
+            size={128}
+          />
+        ))}
       </div>
 
       {/* Modals */}
