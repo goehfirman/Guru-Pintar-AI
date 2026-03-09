@@ -82,16 +82,36 @@ const AbsensiMandiri: React.FC = () => {
   };
 
   function onScanSuccess(decodedText: string) {
+    if (status !== 'scanning') return; // Prevent multiple scans while processing
+
     try {
       const data = JSON.parse(decodedText);
       if (data.type === 'student_id') {
         processAttendance(data);
+      } else {
+        // Handle case where JSON is parsed but it's not our expected format
+        handleUnknownScan(decodedText);
       }
     } catch (e) {
-      const student = allStudents.find(s => s.nisn === decodedText || s.id === decodedText);
-      if (student) {
-        processAttendance({ type: 'student_id', id: student.id, nisn: student.nisn, name: student.name });
-      }
+      // If not JSON, maybe it's just the NISN/ID directly
+      handleUnknownScan(decodedText);
+    }
+  }
+
+  function handleUnknownScan(decodedText: string) {
+    // Try to find student by ID or NISN
+    const student = allStudents.find(s => 
+      s.nisn === decodedText || 
+      s.id === decodedText ||
+      (s.nisn && decodedText.includes(s.nisn)) // Fallback for partial matches
+    );
+    
+    if (student) {
+      processAttendance({ type: 'student_id', id: student.id, nisn: student.nisn, name: student.name });
+    } else {
+      setStatus('error');
+      setErrorMessage('Data siswa tidak ditemukan. Pastikan kartu yang dipindai benar.');
+      setTimeout(() => setStatus('scanning'), 3000);
     }
   }
 
@@ -102,10 +122,17 @@ const AbsensiMandiri: React.FC = () => {
     
     setStatus('submitting');
     
-    const student = allStudents.find(s => s.id === studentData.id);
-    if (!student || student.class !== selectedClass) {
+    const student = allStudents.find(s => s.id === studentData.id || s.nisn === studentData.nisn);
+    if (!student) {
       setStatus('error');
-      setErrorMessage(student ? `Siswa ini terdaftar di kelas ${student.class}, bukan ${selectedClass}.` : 'Data siswa tidak ditemukan.');
+      setErrorMessage('Data siswa tidak ditemukan dalam sistem.');
+      setTimeout(() => setStatus('scanning'), 3000);
+      return;
+    }
+    
+    if (student.class !== selectedClass) {
+      setStatus('error');
+      setErrorMessage(`Siswa ini terdaftar di kelas ${student.class}, bukan ${selectedClass}.`);
       setTimeout(() => setStatus('scanning'), 3000);
       return;
     }

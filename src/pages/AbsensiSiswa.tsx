@@ -191,7 +191,7 @@ const AbsensiSiswa: React.FC = () => {
       const dayAttendance = attendanceData[key] || {};
       
       currentStudents.forEach(s => {
-        const status = dayAttendance[s.id]?.status || 'Hadir';
+        const status = dayAttendance[s.id]?.status || '';
         if (status === 'Hadir') summary[s.id].hadir++;
         else if (status === 'Sakit') summary[s.id].sakit++;
         else if (status === 'Izin') summary[s.id].izin++;
@@ -251,13 +251,14 @@ const AbsensiSiswa: React.FC = () => {
   };
 
   // Calculate stats
-  let hadir = 0, sakit = 0, izin = 0, alpa = 0;
+  let hadir = 0, sakit = 0, izin = 0, alpa = 0, kosong = 0;
   currentStudents.forEach(student => {
-    const status = currentAttendance[student.id]?.status || 'Hadir'; // Default Hadir
+    const status = currentAttendance[student.id]?.status || ''; // Default empty
     if (status === 'Hadir') hadir++;
     else if (status === 'Sakit') sakit++;
     else if (status === 'Izin') izin++;
     else if (status === 'Alpa') alpa++;
+    else kosong++;
   });
 
   return (
@@ -307,6 +308,10 @@ const AbsensiSiswa: React.FC = () => {
           
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 bg-gray-300 rounded-full"></span>
+              <span className="text-gray-600 dark:text-gray-400">Belum: {kosong}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
               <span className="w-3 h-3 bg-green-500 rounded-full"></span>
               <span className="text-gray-600 dark:text-gray-400">Hadir: {hadir}</span>
             </div>
@@ -339,7 +344,7 @@ const AbsensiSiswa: React.FC = () => {
             <tbody>
               {currentStudents.length > 0 ? (
                 currentStudents.map((student, index) => {
-                  const status = currentAttendance[student.id]?.status || 'Hadir';
+                  const status = currentAttendance[student.id]?.status || '';
                   const note = currentAttendance[student.id]?.note || '';
                   
                   return (
@@ -365,6 +370,14 @@ const AbsensiSiswa: React.FC = () => {
                             <input type="radio" name={`status-${student.id}`} value="Alpa" checked={status === 'Alpa'} onChange={() => handleStatusChange(student.id, 'Alpa')} className="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500 dark:focus:ring-red-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
                             <span className="text-sm font-medium text-gray-900 dark:text-gray-300">A</span>
                           </label>
+                          <button 
+                            onClick={() => handleStatusChange(student.id, '')} 
+                            className={`ml-2 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors ${status === '' ? 'text-gray-400 opacity-50 cursor-not-allowed' : 'text-gray-500'}`}
+                            disabled={status === ''}
+                            title="Reset (Kosongkan)"
+                          >
+                            <span className="material-symbols-outlined text-sm">restart_alt</span>
+                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4">

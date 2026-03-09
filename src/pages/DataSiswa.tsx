@@ -151,12 +151,12 @@ const DataSiswa: React.FC = () => {
       
       // QR Code
       const canvas = document.createElement('canvas');
+      // The scanner expects the raw ID or NISN, or a JSON object. We will use the JSON object format
+      // that the scanner is already programmed to parse: { type: 'student_id', id: student.id, nisn: student.nisn, name: student.name }
       const qrValue = JSON.stringify({ type: 'student_id', id: student.id, nisn: student.nisn, name: student.name });
       
       // We need to wait for QR to be drawn if we were using a library that's async, 
-      // but qrcode.react is a component. Let's use a simpler approach or a helper.
-      // Since we can't easily render a React component to a dataURL here without mounting,
-      // I'll use a trick: I'll add a hidden QR component to the page and use its canvas.
+      // but qrcode.react is a component. Let's use a trick: I'll add a hidden QR component to the page and use its canvas.
       
       const qrCanvas = document.getElementById(`qr-gen-${student.id}`) as HTMLCanvasElement;
       if (qrCanvas) {
