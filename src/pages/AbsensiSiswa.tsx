@@ -9,11 +9,20 @@ import type { Socket } from 'socket.io-client';
 
 const AbsensiSiswa: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState('X IPA 1');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   
   const [isRekapModalOpen, setIsRekapModalOpen] = useState(false);
-  const [rekapStartDate, setRekapStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]);
-  const [rekapEndDate, setRekapEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [rekapStartDate, setRekapStartDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  });
+  const [rekapEndDate, setRekapEndDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   
   const [availableClasses, setAvailableClasses] = useState<string[]>(['X IPA 1', 'X IPA 2', 'XI IPA 1', 'XI IPA 2']);
   
@@ -59,16 +68,18 @@ const AbsensiSiswa: React.FC = () => {
       // Smart selection: 
       // 1. If current selectedClass is not in combinedClasses, pick the first one.
       // 2. If current selectedClass has no students, but others do, pick the first one that has students.
-      const currentClassHasStudents = students.some(s => 
-        s.class?.toString().trim() === selectedClass?.toString().trim() && 
-        (s.status?.toString().toLowerCase() === 'aktif' || !s.status)
-      );
-      
-      if (!combinedClasses.includes(selectedClass) || (!currentClassHasStudents && studentClasses.length > 0)) {
-        // Pick the first class from studentClasses if available, otherwise first from combined
-        const targetClass = studentClasses.length > 0 ? studentClasses[0] : combinedClasses[0];
-        setSelectedClass(targetClass);
-      }
+      setSelectedClass(prevClass => {
+        const currentClassHasStudents = students.some(s => 
+          s.class?.toString().trim() === prevClass?.toString().trim() && 
+          (s.status?.toString().toLowerCase() === 'aktif' || !s.status)
+        );
+        
+        if (!combinedClasses.includes(prevClass) || (!currentClassHasStudents && studentClasses.length > 0)) {
+          // Pick the first class from studentClasses if available, otherwise first from combined
+          return studentClasses.length > 0 ? studentClasses[0] : combinedClasses[0];
+        }
+        return prevClass;
+      });
     } else {
       setAvailableClasses(['X IPA 1', 'X IPA 2', 'XI IPA 1', 'XI IPA 2']);
     }
@@ -90,69 +101,103 @@ const AbsensiSiswa: React.FC = () => {
     // Initialize socket
     socketRef.current = io();
     
-    socketRef.current.on('attendance:update', (data) => {
-      // Check if the update is for the current class and date
-      if (data.class === selectedClass && data.date === selectedDate) {
-        handleStatusChange(data.studentId, data.status);
-      }
+    socketRef.current.on('attendance:update', (data: any) => {
+      const key = `${data.date}_${data.class}`;
+      
+      // Read latest from localStorage to avoid overwriting with stale React state
+      const storageKey = getStorageKey('guru_attendance');
+      const saved = localStorage.getItem(storageKey);
+      const currentData = saved ? JSON.parse(saved) : {};
+      
+      const newData = {
+        ...currentData,
+        [key]: {
+          ...(currentData[key] || {}),
+          [data.studentId]: {
+            ...(currentData[key]?.[data.studentId] || {}),
+            status: data.status
+          }
+        }
+      };
+      
+      localStorage.setItem(storageKey, JSON.stringify(newData));
+      setAttendanceData(newData);
     });
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === getStorageKey('guru_attendance')) {
+        loadData();
+      }
+    };
 
     window.addEventListener('academicSettingsUpdated', loadData);
     window.addEventListener('classesUpdated', loadData);
     window.addEventListener('studentsUpdated', loadData);
+    window.addEventListener('attendanceUpdated', loadData);
+    window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('academicSettingsUpdated', loadData);
       window.removeEventListener('classesUpdated', loadData);
       window.removeEventListener('studentsUpdated', loadData);
+      window.removeEventListener('attendanceUpdated', loadData);
+      window.removeEventListener('storage', handleStorageChange);
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
     };
-  }, [selectedClass, selectedDate]);
+  }, []);
 
   const currentStudents = allStudents.filter(s => 
     s.class?.toString().trim() === selectedClass?.toString().trim() && 
     (s.status?.toString().toLowerCase() === 'aktif' || !s.status)
   );
   
-  const getAttendanceKey = () => `${selectedDate}_${selectedClass}`;
+  const getAttendanceKey = () => `${selectedDate}_${selectedClass?.toString().trim()}`;
   
   const currentAttendance = attendanceData[getAttendanceKey()] || {};
 
   const handleStatusChange = (studentId: string, status: string) => {
     const key = getAttendanceKey();
-    setAttendanceData(prev => {
-      const newData = {
-        ...prev,
-        [key]: {
-          ...(prev[key] || {}),
-          [studentId]: {
-            ...(prev[key]?.[studentId] || {}),
-            status
-          }
+    
+    const storageKey = getStorageKey('guru_attendance');
+    const saved = localStorage.getItem(storageKey);
+    const currentData = saved ? JSON.parse(saved) : {};
+    
+    const newData = {
+      ...currentData,
+      [key]: {
+        ...(currentData[key] || {}),
+        [studentId]: {
+          ...(currentData[key]?.[studentId] || {}),
+          status
         }
-      };
-      localStorage.setItem(getStorageKey('guru_attendance'), JSON.stringify(newData));
-      return newData;
-    });
+      }
+    };
+    
+    localStorage.setItem(storageKey, JSON.stringify(newData));
+    setAttendanceData(newData);
   };
 
   const handleNoteChange = (studentId: string, note: string) => {
     const key = getAttendanceKey();
-    setAttendanceData(prev => {
-      const newData = {
-        ...prev,
-        [key]: {
-          ...(prev[key] || {}),
-          [studentId]: {
-            ...(prev[key]?.[studentId] || {}),
-            note
-          }
+    
+    const storageKey = getStorageKey('guru_attendance');
+    const saved = localStorage.getItem(storageKey);
+    const currentData = saved ? JSON.parse(saved) : {};
+    
+    const newData = {
+      ...currentData,
+      [key]: {
+        ...(currentData[key] || {}),
+        [studentId]: {
+          ...(currentData[key]?.[studentId] || {}),
+          note
         }
-      };
-      localStorage.setItem(getStorageKey('guru_attendance'), JSON.stringify(newData));
-      return newData;
-    });
+      }
+    };
+    
+    localStorage.setItem(storageKey, JSON.stringify(newData));
+    setAttendanceData(newData);
   };
 
   const saveAttendance = () => {

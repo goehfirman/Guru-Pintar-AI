@@ -130,34 +130,63 @@ const AbsensiMandiri: React.FC = () => {
       return;
     }
     
-    if (student.class !== selectedClass) {
+    const studentClass = student.class?.toString().trim();
+    const targetClass = selectedClass?.toString().trim();
+    
+    if (studentClass !== targetClass) {
       setStatus('error');
-      setErrorMessage(`Siswa ini terdaftar di kelas ${student.class}, bukan ${selectedClass}.`);
+      setErrorMessage(`Siswa ini terdaftar di kelas ${studentClass || 'Tidak ada kelas'}, bukan ${targetClass}.`);
       setTimeout(() => setStatus('scanning'), 3000);
       return;
     }
 
-    if (socketRef.current) {
-      const attendanceData = {
-        studentId: student.id,
-        studentName: student.name,
-        class: selectedClass,
-        date: new Date().toISOString().split('T')[0],
-        status: 'Hadir',
-        timestamp: new Date().toISOString()
-      };
+    const d = new Date();
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const attendanceData = {
+      studentId: student.id,
+      studentName: student.name,
+      class: targetClass,
+      date: dateStr,
+      status: 'Hadir',
+      timestamp: d.toISOString()
+    };
 
-      socketRef.current.emit('student:attendance', attendanceData);
+    // Save to localStorage directly so it persists even if AbsensiSiswa is closed
+    try {
+      const storageKey = getStorageKey('guru_attendance');
+      const savedAttendance = localStorage.getItem(storageKey);
+      const parsedAttendance = savedAttendance ? JSON.parse(savedAttendance) : {};
       
-      setRecentAttendance(prev => [attendanceData, ...prev].slice(0, 5));
-      setStatus('success');
-      setScanResult(student);
-      
-      setTimeout(() => {
-        setScanResult(null);
-        setStatus('scanning');
-      }, 2000);
+      const key = `${dateStr}_${targetClass}`;
+      const newData = {
+        ...parsedAttendance,
+        [key]: {
+          ...(parsedAttendance[key] || {}),
+          [student.id]: {
+            ...(parsedAttendance[key]?.[student.id] || {}),
+            status: 'Hadir'
+          }
+        }
+      };
+      localStorage.setItem(storageKey, JSON.stringify(newData));
+      // Dispatch event for other tabs/components
+      window.dispatchEvent(new Event('attendanceUpdated'));
+    } catch (e) {
+      console.error('Failed to save attendance locally', e);
     }
+
+    if (socketRef.current) {
+      socketRef.current.emit('student:attendance', attendanceData);
+    }
+    
+    setRecentAttendance(prev => [attendanceData, ...prev].slice(0, 5));
+    setStatus('success');
+    setScanResult(student);
+    
+    setTimeout(() => {
+      setScanResult(null);
+      setStatus('scanning');
+    }, 2000);
   };
 
   return (
