@@ -34,16 +34,34 @@ const AbsensiMandiri: React.FC = () => {
     // Initialize socket
     socketRef.current = io();
 
+    // Trigger loading of voices early
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+
     return () => {
       stopCamera();
       if (socketRef.current) {
         socketRef.current.disconnect();
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = null;
       }
     };
   }, []);
 
   const startCamera = async () => {
     if (html5QrCodeRef.current) return;
+
+    // Initialize speech synthesis on user interaction to unlock audio context
+    if ('speechSynthesis' in window) {
+      const unlockUtterance = new SpeechSynthesisUtterance('');
+      unlockUtterance.volume = 0;
+      window.speechSynthesis.speak(unlockUtterance);
+    }
 
     try {
       const html5QrCode = new Html5Qrcode("reader");
@@ -185,12 +203,28 @@ const AbsensiMandiri: React.FC = () => {
     
     // Announce attendance via Text-to-Speech
     if ('speechSynthesis' in window) {
-      // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(`${student.name} Hadir!`);
-      utterance.lang = 'id-ID';
-      utterance.rate = 1.0;
-      window.speechSynthesis.speak(utterance);
+      const speak = () => {
+        const utterance = new SpeechSynthesisUtterance(`${student.name} Hadir!`);
+        utterance.lang = 'id-ID';
+        utterance.rate = 1.0;
+        utterance.volume = 1.0;
+        
+        // Try to find an Indonesian voice
+        const voices = window.speechSynthesis.getVoices();
+        const idVoice = voices.find(v => v.lang === 'id-ID' || v.lang === 'id_ID');
+        if (idVoice) {
+          utterance.voice = idVoice;
+        }
+        
+        window.speechSynthesis.speak(utterance);
+      };
+
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        setTimeout(speak, 100);
+      } else {
+        speak();
+      }
     }
     
     setTimeout(() => {
